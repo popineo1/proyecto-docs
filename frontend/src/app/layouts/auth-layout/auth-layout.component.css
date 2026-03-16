@@ -1,0 +1,6 @@
+.auth-shell {
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.28), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.18), transparent 28%),
+    linear-gradient(135deg, var(--login-gradient-start), var(--login-gradient-end));
+}

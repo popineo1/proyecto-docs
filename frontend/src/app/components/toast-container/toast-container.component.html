@@ -1,0 +1,16 @@
+<div class="fixed bottom-6 right-6 z-50 space-y-3">
+
+  @for (toast of toastService.toasts(); track toast.id) {
+
+    <div
+      class="rounded-xl px-4 py-3 shadow-lg text-white"
+      [class.bg-green-500]="toast.type === 'success'"
+      [class.bg-red-500]="toast.type === 'error'"
+      [class.bg-slate-700]="toast.type === 'info'"
+    >
+      {{ toast.text }}
+    </div>
+
+  }
+
+</div>

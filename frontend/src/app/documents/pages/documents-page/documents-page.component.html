@@ -1,0 +1,128 @@
+<div class="space-y-5 sm:space-y-6">
+  <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold sm:text-3xl">Documentos</h1>
+      <p class="mt-2 text-sm sm:text-base text-[var(--dark-gray-color)]">
+        Sube, consulta y controla el estado del procesamiento documental
+      </p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 xl:grid-cols-[340px_minmax(0,1fr)] 2xl:grid-cols-[380px_minmax(0,1fr)]">
+    <div class="rounded-2xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] p-4 shadow-sm sm:p-5">
+      <h3 class="text-lg font-semibold">Subir documento</h3>
+      <p class="mt-2 text-sm text-[var(--dark-gray-color)]">
+        Sube un archivo para incorporarlo al sistema. Después tendrás que procesarlo para que cuente en tus datos.
+      </p>
+
+      <div class="mt-5 space-y-4">
+        <input
+          id="document-upload-input"
+          type="file"
+          class="form-input-rounded w-full"
+          (change)="onFileChange($event)"
+        />
+
+        @if (selectedFile(); as file) {
+          <div class="rounded-xl border border-[var(--border-color)] bg-[var(--bg-gray-color)] px-4 py-3 text-sm">
+            <p class="break-words"><strong>Archivo:</strong> {{ file.name }}</p>
+            <p class="mt-1"><strong>Tamaño:</strong> {{ formatBytes(file.size) }}</p>
+            <p class="mt-1 break-words"><strong>Tipo:</strong> {{ file.type || 'No informado' }}</p>
+          </div>
+        }
+
+        @if (uploadError()) {
+          <div class="rounded-xl border border-[var(--error-color)] bg-red-50 px-4 py-3 text-sm text-[var(--error-color)]">
+            {{ uploadError() }}
+          </div>
+        }
+
+        <button
+          type="button"
+          class="w-full rounded-xl bg-[var(--primary-color)] px-4 py-3 text-sm font-medium text-[var(--text-opposite-color)] hover:opacity-90 disabled:opacity-60 sm:text-base"
+          [disabled]="uploading()"
+          (click)="uploadSelectedFile()"
+        >
+          {{ uploading() ? 'Subiendo...' : 'Subir documento' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="rounded-2xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] p-4 shadow-sm sm:p-5">
+      <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <h3 class="text-lg font-semibold">Listado de documentos</h3>
+
+        <input
+          type="text"
+          class="form-input-rounded w-full md:max-w-xs"
+          placeholder="Buscar documento..."
+          [value]="search()"
+          (input)="setSearch(($any($event.target)).value)"
+        />
+      </div>
+
+      @if (loading()) {
+        <p class="text-sm text-[var(--dark-gray-color)]">Cargando documentos...</p>
+      } @else if (error()) {
+        <div class="rounded-xl border border-[var(--error-color)] bg-red-50 px-4 py-3 text-sm text-[var(--error-color)]">
+          {{ error() }}
+        </div>
+      } @else if (!filteredDocuments().length) {
+        <div class="rounded-2xl border border-dashed border-[var(--border-color)] px-6 py-10 text-center text-sm text-[var(--dark-gray-color)]">
+          No hay documentos todavía.
+        </div>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="min-w-[760px] w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-[var(--border-color)] text-[var(--dark-gray-color)]">
+                <th class="px-3 py-3 font-medium">Archivo</th>
+                <th class="px-3 py-3 font-medium">Tamaño</th>
+                <th class="px-3 py-3 font-medium">Subida</th>
+                <th class="px-3 py-3 font-medium">Procesado</th>
+                <th class="px-3 py-3 font-medium">Fecha</th>
+                <th class="px-3 py-3 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (doc of filteredDocuments(); track doc.id) {
+                <tr class="border-b border-[var(--border-color)] last:border-b-0">
+                  <td class="px-3 py-4">
+                    <div class="font-medium break-words">{{ doc.filename_original }}</div>
+                    <div class="text-xs text-[var(--dark-gray-color)] break-words">{{ doc.mime_type }}</div>
+                  </td>
+
+                  <td class="px-3 py-4">{{ formatBytes(doc.file_size) }}</td>
+
+                  <td class="px-3 py-4">
+                    <span class="inline-flex rounded-full border px-3 py-1 text-xs font-medium" [class]="getStatusClasses(doc.upload_status)">
+                      {{ getStatusLabel(doc.upload_status) }}
+                    </span>
+                  </td>
+
+                  <td class="px-3 py-4">
+                    <span class="inline-flex rounded-full border px-3 py-1 text-xs font-medium" [class]="getStatusClasses(doc.processing_status)">
+                      {{ getStatusLabel(doc.processing_status) }}
+                    </span>
+                  </td>
+
+                  <td class="px-3 py-4 whitespace-nowrap">{{ doc.created_at | date:'dd/MM/yyyy HH:mm' }}</td>
+
+                  <td class="px-3 py-4 text-right">
+                    <button
+                      type="button"
+                      class="rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm hover:bg-[var(--muted-hover-color)]"
+                      (click)="goToDetail(doc.id)"
+                    >
+                      Ver detalle
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </div>
+</div>

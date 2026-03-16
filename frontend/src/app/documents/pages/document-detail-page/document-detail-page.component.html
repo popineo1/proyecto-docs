@@ -1,0 +1,285 @@
+<div class="space-y-5 sm:space-y-6">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <a routerLink="/documents" class="text-sm font-medium text-[var(--primary-color)]">← Volver a documentos</a>
+      <h1 class="mt-2 text-2xl font-semibold sm:text-3xl">Detalle de documento</h1>
+      <p class="mt-2 text-sm text-[var(--dark-gray-color)]">
+        El archivo ya está subido, pero no contará en tus números hasta que lo proceses.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+      [disabled]="deleting()"
+      (click)="openDeletePopup()"
+    >
+      {{ deleting() ? 'Eliminando...' : 'Eliminar documento' }}
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="rounded-2xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] px-4 py-6 text-sm text-[var(--dark-gray-color)] sm:px-5">
+      Cargando documento...
+    </div>
+  } @else if (error()) {
+    <div class="rounded-xl border border-[var(--error-color)] bg-red-50 px-4 py-3 text-sm text-[var(--error-color)]">
+      {{ error() }}
+    </div>
+  } @else if (document(); as doc) {
+    <div class="space-y-5 sm:space-y-6">
+      <div class="rounded-2xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] p-4 shadow-sm sm:p-5">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <h3 class="text-lg font-semibold">Información general</h3>
+
+          <div class="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              class="rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm hover:bg-[var(--muted-hover-color)] disabled:cursor-not-allowed disabled:opacity-60"
+              [disabled]="previewLoading() || !document()"
+              (click)="visualizeDocument()"
+            >
+              {{ previewLoading() ? 'Abriendo...' : 'Visualizar archivo' }}
+            </button>
+
+            <button
+              type="button"
+              class="rounded-lg bg-[var(--primary-color)] px-3 py-2 text-sm font-medium text-[var(--text-opposite-color)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              [disabled]="downloadLoading() || !document()"
+              (click)="downloadDocument()"
+            >
+              {{ downloadLoading() ? 'Descargando...' : 'Descargar archivo' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <p class="text-sm text-[var(--dark-gray-color)]">Nombre del archivo</p>
+            <p class="mt-1 break-words font-medium">{{ doc.filename_original }}</p>
+          </div>
+
+          <div>
+            <p class="text-sm text-[var(--dark-gray-color)]">Formato</p>
+            <p class="mt-1 break-words font-medium">{{ doc.mime_type }}</p>
+          </div>
+
+          <div>
+            <p class="text-sm text-[var(--dark-gray-color)]">Estado de subida</p>
+            <span
+              class="mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-medium"
+              [class]="getStatusClasses(doc.upload_status)"
+            >
+              {{ getStatusLabel(doc.upload_status) }}
+            </span>
+          </div>
+
+          <div>
+            <p class="text-sm text-[var(--dark-gray-color)]">Estado de procesamiento</p>
+            <span
+              class="mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-medium"
+              [class]="getStatusClasses(doc.processing_status)"
+            >
+              {{ getStatusLabel(doc.processing_status) }}
+            </span>
+          </div>
+
+          <div>
+            <p class="text-sm text-[var(--dark-gray-color)]">Tamaño</p>
+            <p class="mt-1 font-medium">{{ doc.file_size }} bytes</p>
+          </div>
+
+          <div>
+            <p class="text-sm text-[var(--dark-gray-color)]">Subido el</p>
+            <p class="mt-1 font-medium">{{ doc.created_at | date:'dd/MM/yyyy HH:mm' }}</p>
+          </div>
+        </div>
+
+        @if (doc.error_message) {
+          <div class="mt-5 rounded-xl border border-[var(--error-color)] bg-red-50 px-4 py-3 text-sm text-[var(--error-color)]">
+            {{ doc.error_message }}
+          </div>
+        }
+      </div>
+
+      <div class="rounded-2xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] p-4 shadow-sm sm:p-5">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 class="text-lg font-semibold">Procesamiento del documento</h3>
+            <p class="mt-1 text-sm text-[var(--dark-gray-color)]">
+              Cuando lo proceses, se extraerán los datos y pasará a contar en tus métricas.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            class="rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm hover:bg-[var(--muted-hover-color)]"
+            (click)="loadJobs()"
+          >
+            Recargar
+          </button>
+        </div>
+
+        @if (jobsLoading()) {
+          <p class="mt-4 text-sm text-[var(--dark-gray-color)]">Cargando procesos...</p>
+        } @else if (jobsError()) {
+          <div class="mt-4 rounded-xl border border-[var(--error-color)] bg-red-50 px-4 py-3 text-sm text-[var(--error-color)]">
+            {{ jobsError() }}
+          </div>
+        } @else if (!jobs().length) {
+          <div class="mt-4 rounded-xl border border-dashed border-[var(--border-color)] px-5 py-8 text-center text-sm text-[var(--dark-gray-color)]">
+            Este documento todavía no tiene procesos disponibles.
+          </div>
+        } @else {
+          <div class="mt-4 space-y-4">
+            @for (job of jobs(); track job.id) {
+              <div class="rounded-xl border border-[var(--border-color)] p-4">
+                <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                  <div class="min-w-0 space-y-2">
+                    <p class="break-words font-medium">{{ getJobTypeLabel(job.job_type) }}</p>
+
+                    <div class="flex flex-wrap gap-2 text-sm">
+                      <span
+                        class="inline-flex rounded-full border px-3 py-1 text-xs font-medium"
+                        [class]="getStatusClasses(job.status)"
+                      >
+                        {{ getStatusLabel(job.status) }}
+                      </span>
+                      <span class="rounded-full bg-[var(--bg-gray-color)] px-3 py-1 text-xs">
+                        Intentos: {{ job.attempts }}/{{ job.max_attempts }}
+                      </span>
+                    </div>
+
+                    <div class="space-y-1 text-sm text-[var(--dark-gray-color)]">
+                      <p>Creado: {{ job.created_at | date:'dd/MM/yyyy HH:mm' }}</p>
+                      <p>Inicio: {{ job.started_at ? (job.started_at | date:'dd/MM/yyyy HH:mm') : '-' }}</p>
+                      <p>Fin: {{ job.finished_at ? (job.finished_at | date:'dd/MM/yyyy HH:mm') : '-' }}</p>
+                    </div>
+
+                    @if (job.error_message) {
+                      <p class="break-words text-sm text-[var(--error-color)]">{{ job.error_message }}</p>
+                    }
+                  </div>
+
+                  <div class="w-full xl:w-auto">
+                    <button
+                      type="button"
+                      class="w-full rounded-xl bg-[var(--primary-color)] px-4 py-3 text-sm font-medium text-[var(--text-opposite-color)] hover:opacity-90 disabled:opacity-60 xl:w-auto"
+                      [disabled]="runLoadingId() === job.id || job.status === 'running'"
+                      (click)="runMockJob(job.id)"
+                    >
+                      {{ runLoadingId() === job.id ? 'Procesando...' : 'Procesar documento' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <popup-container
+    [show]="showDeletePopup()"
+    popupTitle="Eliminar documento"
+    popupSubtitle="Esta acción eliminará el documento y no se podrá deshacer."
+    [showCloseButton]="true"
+    [closeOnBackdrop]="!deleting()"
+    widthSize="sm"
+    (close)="closeDeletePopup()"
+  >
+    <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-4">
+      <p class="text-sm text-red-700">
+        ¿Seguro que quieres eliminar
+        <span class="font-semibold">"{{ document()?.filename_original }}"</span>?
+      </p>
+    </div>
+
+    <div popup-footer class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      <button
+        type="button"
+        class="w-full rounded-xl border border-[var(--border-color)] px-4 py-3 text-sm hover:bg-[var(--muted-hover-color)] sm:w-auto"
+        [disabled]="deleting()"
+        (click)="closeDeletePopup()"
+      >
+        Cancelar
+      </button>
+
+      <button
+        type="button"
+        class="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+        [disabled]="deleting()"
+        (click)="confirmDeleteDocument()"
+      >
+        {{ deleting() ? 'Eliminando...' : 'Sí, eliminar documento' }}
+      </button>
+    </div>
+  </popup-container>
+
+  @if (showViewer() && viewerUrl(); as fileUrl) {
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      (click)="closeViewer()"
+    >
+      <div
+        class="relative w-full max-w-6xl rounded-2xl bg-white shadow-2xl"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="flex flex-col gap-3 border-b border-[var(--border-color)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="min-w-0">
+            <p class="truncate font-medium">{{ document()?.filename_original }}</p>
+            <p class="text-sm text-[var(--dark-gray-color)]">{{ document()?.mime_type }}</p>
+          </div>
+
+          <button
+            type="button"
+            class="rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm hover:bg-[var(--muted-hover-color)]"
+            (click)="closeViewer()"
+          >
+            Cerrar
+          </button>
+        </div>
+
+        <div class="flex min-h-[60vh] max-h-[85vh] items-center justify-center bg-[var(--bg-gray-color)] p-4">
+          @switch (true) {
+            @case ((viewerMimeType() || '').startsWith('image/')) {
+              <img
+                [src]="fileUrl"
+                alt="Vista previa"
+                class="max-h-[75vh] max-w-full rounded-lg object-contain"
+              />
+            }
+
+            @case ((viewerMimeType() || '') === 'application/pdf') {
+              <iframe
+                [src]="viewerSafeUrl()"
+                class="h-[75vh] w-full rounded-lg bg-white"
+              ></iframe>
+            }
+
+            @case ((viewerMimeType() || '').startsWith('text/')) {
+              <iframe
+                [src]="viewerSafeUrl()"
+                class="h-[75vh] w-full rounded-lg bg-white"
+              ></iframe>
+            }
+
+            @default {
+              <div class="space-y-3 text-center">
+                <p class="text-base font-medium">No hay vista previa disponible para este tipo de archivo.</p>
+                <button
+                  type="button"
+                  class="rounded-lg bg-[var(--primary-color)] px-4 py-2 text-sm font-medium text-[var(--text-opposite-color)] hover:opacity-90"
+                  (click)="downloadDocument()"
+                >
+                  Descargar archivo
+                </button>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>

@@ -1,0 +1,282 @@
+<div class="space-y-5 sm:space-y-6">
+  <div class="rounded-3xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] p-5 shadow-sm sm:p-6">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--dark-gray-color)]">
+          Centro financiero
+        </p>
+        <h1 class="mt-2 text-2xl font-semibold sm:text-3xl">Movimientos financieros</h1>
+        <p class="mt-2 max-w-3xl text-sm sm:text-base text-[var(--dark-gray-color)]">
+          Tabla central de todos los movimientos económicos de la empresa, sin importar su origen.
+        </p>
+      </div>
+
+      <div class="rounded-2xl bg-[var(--bg-gray-color)] px-4 py-3 text-sm font-medium text-[var(--dark-gray-color)]">
+        Balance mostrado:
+        <span
+          class="font-semibold"
+          [class.text-red-600]="balance() < 0"
+          [class.text-emerald-600]="balance() > 0"
+        >
+          {{ balance() | number:'1.2-2' }} €
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resumen -->
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-3xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] p-5 shadow-sm">
+      <p class="text-sm text-[var(--dark-gray-color)]">Ingresos mostrados</p>
+      <p class="mt-3 text-3xl font-semibold text-emerald-600">
+        {{ totalIncome() | number:'1.2-2' }} €
+      </p>
+    </div>
+
+    <div class="rounded-3xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] p-5 shadow-sm">
+      <p class="text-sm text-[var(--dark-gray-color)]">Gastos mostrados</p>
+      <p class="mt-3 text-3xl font-semibold text-red-600">
+        {{ totalExpense() | number:'1.2-2' }} €
+      </p>
+    </div>
+
+    <div class="rounded-3xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] p-5 shadow-sm">
+      <p class="text-sm text-[var(--dark-gray-color)]">Movimientos cargados</p>
+      <p class="mt-3 text-3xl font-semibold">
+        {{ movements().length }}
+      </p>
+    </div>
+
+    <div class="rounded-3xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] p-5 shadow-sm">
+      <p class="text-sm text-[var(--dark-gray-color)]">Pendientes revisión</p>
+      <p class="mt-3 text-3xl font-semibold text-amber-600">
+        {{ pendingReviewCount() }}
+      </p>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="rounded-3xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] p-5 shadow-sm">
+    <div class="mb-5">
+      <h2 class="text-lg font-semibold">Filtros</h2>
+      <p class="text-sm text-[var(--dark-gray-color)]">
+        Filtra por tipo, estado, origen, fechas, tercero o área de negocio.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div>
+        <label class="mb-1 block text-sm font-medium">Tipo</label>
+        <select
+          class="w-full rounded-2xl border border-[var(--border-color)] bg-white px-3 py-2 text-sm"
+          [ngModel]="filters().kind"
+          (ngModelChange)="updateFilter('kind', $event || null)"
+        >
+          <option [ngValue]="null">Todos</option>
+          <option value="income">Ingreso</option>
+          <option value="expense">Gasto</option>
+          <option value="tax">Impuesto</option>
+          <option value="payroll">Nómina</option>
+          <option value="social_security">Seguridad social</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium">Estado</label>
+        <select
+          class="w-full rounded-2xl border border-[var(--border-color)] bg-white px-3 py-2 text-sm"
+          [ngModel]="filters().status"
+          (ngModelChange)="updateFilter('status', $event || null)"
+        >
+          <option [ngValue]="null">Todos</option>
+          <option value="draft">Borrador</option>
+          <option value="proposed">Propuesto</option>
+          <option value="confirmed">Confirmado</option>
+          <option value="reconciled">Conciliado</option>
+          <option value="archived">Archivado</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium">Origen</label>
+        <select
+          class="w-full rounded-2xl border border-[var(--border-color)] bg-white px-3 py-2 text-sm"
+          [ngModel]="filters().source_type"
+          (ngModelChange)="updateFilter('source_type', $event || null)"
+        >
+          <option [ngValue]="null">Todos</option>
+          <option value="document">Documento</option>
+          <option value="excel_import">Excel</option>
+          <option value="manual">Manual</option>
+          <option value="bank_import">Banco</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium">Revisión</label>
+        <select
+          class="w-full rounded-2xl border border-[var(--border-color)] bg-white px-3 py-2 text-sm"
+          [ngModel]="filters().needs_review"
+          (ngModelChange)="updateFilter('needs_review', $event === '' ? null : $event === 'true')"
+        >
+          <option value="">Todos</option>
+          <option value="true">Pendiente</option>
+          <option value="false">No pendiente</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium">Categoría</label>
+        <input
+          class="w-full rounded-2xl border border-[var(--border-color)] bg-white px-3 py-2 text-sm"
+          type="text"
+          [ngModel]="filters().category"
+          (ngModelChange)="updateFilter('category', $event || null)"
+          placeholder="Ej. Impuestos"
+        />
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium">Tercero</label>
+        <input
+          class="w-full rounded-2xl border border-[var(--border-color)] bg-white px-3 py-2 text-sm"
+          type="text"
+          [ngModel]="filters().third_party_name"
+          (ngModelChange)="updateFilter('third_party_name', $event || null)"
+          placeholder="Ej. Hacienda"
+        />
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium">Área negocio</label>
+        <input
+          class="w-full rounded-2xl border border-[var(--border-color)] bg-white px-3 py-2 text-sm"
+          type="text"
+          [ngModel]="filters().business_area"
+          (ngModelChange)="updateFilter('business_area', $event || null)"
+          placeholder="Ej. fiscalidad"
+        />
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium">Desde</label>
+        <input
+          class="w-full rounded-2xl border border-[var(--border-color)] bg-white px-3 py-2 text-sm"
+          type="date"
+          [ngModel]="filters().date_from"
+          (ngModelChange)="updateFilter('date_from', $event || null)"
+        />
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium">Hasta</label>
+        <input
+          class="w-full rounded-2xl border border-[var(--border-color)] bg-white px-3 py-2 text-sm"
+          type="date"
+          [ngModel]="filters().date_to"
+          (ngModelChange)="updateFilter('date_to', $event || null)"
+        />
+      </div>
+    </div>
+
+    <div class="mt-4 flex flex-wrap gap-3">
+      <button
+        class="rounded-2xl bg-black px-4 py-2 text-sm font-medium text-white"
+        (click)="applyFilters()"
+      >
+        Aplicar filtros
+      </button>
+
+      <button
+        class="rounded-2xl border border-[var(--border-color)] bg-white px-4 py-2 text-sm font-medium"
+        (click)="clearFilters()"
+      >
+        Limpiar
+      </button>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="rounded-3xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] px-4 py-6 text-sm text-[var(--dark-gray-color)]">
+      Cargando movimientos...
+    </div>
+  } @else if (error()) {
+    <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {{ error() }}
+    </div>
+  } @else {
+    <div class="overflow-hidden rounded-3xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] shadow-sm">
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-[var(--bg-gray-color)]">
+            <tr class="text-left">
+              <th class="px-4 py-3 font-medium">Fecha</th>
+              <th class="px-4 py-3 font-medium">Tipo</th>
+              <th class="px-4 py-3 font-medium">Estado</th>
+              <th class="px-4 py-3 font-medium">Origen</th>
+              <th class="px-4 py-3 font-medium">Tercero</th>
+              <th class="px-4 py-3 font-medium">Concepto</th>
+              <th class="px-4 py-3 font-medium">Categoría</th>
+              <th class="px-4 py-3 font-medium text-right">Total</th>
+              <th class="px-4 py-3 font-medium text-center">Revisión</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            @if (movements().length === 0) {
+              <tr>
+                <td colspan="9" class="px-4 py-8 text-center text-[var(--dark-gray-color)]">
+                  No hay movimientos para los filtros seleccionados.
+                </td>
+              </tr>
+            } @else {
+              @for (movement of movements(); track movement.id) {
+                <tr class="border-t border-[var(--border-color)]">
+                  <td class="px-4 py-3">
+                    {{ movement.movement_date ? (movement.movement_date | date:'dd/MM/yyyy') : '—' }}
+                  </td>
+
+                  <td class="px-4 py-3">
+                    <span
+                      class="rounded-full px-2 py-1 text-xs font-medium"
+                      [class.bg-green-50]="movement.kind === 'income'"
+                      [class.text-green-700]="movement.kind === 'income'"
+                      [class.bg-red-50]="movement.kind === 'expense'"
+                      [class.text-red-700]="movement.kind === 'expense'"
+                      [class.bg-slate-100]="movement.kind !== 'income' && movement.kind !== 'expense'"
+                      [class.text-slate-700]="movement.kind !== 'income' && movement.kind !== 'expense'"
+                    >
+                      {{ kindLabel(movement.kind) }}
+                    </span>
+                  </td>
+
+                  <td class="px-4 py-3">{{ movement.status || '—' }}</td>
+                  <td class="px-4 py-3">{{ sourceLabel(movement.source_type) }}</td>
+                  <td class="px-4 py-3">{{ movement.third_party_name || '—' }}</td>
+                  <td class="px-4 py-3">{{ movement.concept || '—' }}</td>
+                  <td class="px-4 py-3">{{ movement.category || '—' }}</td>
+
+                  <td class="px-4 py-3 text-right font-medium">
+                    {{ toNumber(movement.total_amount) | number:'1.2-2' }} €
+                  </td>
+
+                  <td class="px-4 py-3 text-center">
+                    <span
+                      class="rounded-full px-2 py-1 text-xs font-medium"
+                      [class.bg-amber-50]="movement.needs_review"
+                      [class.text-amber-700]="movement.needs_review"
+                      [class.bg-emerald-50]="!movement.needs_review"
+                      [class.text-emerald-700]="!movement.needs_review"
+                    >
+                      {{ movement.needs_review ? 'Pendiente' : 'OK' }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>
