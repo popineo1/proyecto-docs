@@ -14,6 +14,10 @@ class AnalyticsOverviewResponse(BaseModel):
     average_ticket: Decimal
     documents_processed: int
     pending_reviews: int
+    fixed_burn_rate: Decimal
+    variable_burn_rate: Decimal
+    forecast_vat: Decimal
+    forecast_irpf: Decimal
 
 
 class MonthlyFlowRow(BaseModel):

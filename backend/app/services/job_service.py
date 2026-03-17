@@ -84,12 +84,17 @@ class JobService:
                 "application/vnd.ms-excel"
             ]:
                 # 1. Real Excel Processing
-                ExcelProcessingService.process_document(
+                metrics = ExcelProcessingService.process_document(
                     db, 
                     job.tenant_id, 
                     document.id, 
                     document.storage_key
                 )
+                
+                # Store metrics in job record
+                job.imported_count = metrics.get("imported", 0)
+                job.duplicate_count = metrics.get("duplicates", 0)
+                job.skipped_count = metrics.get("skipped", 0)
             else:
                 # 2. Fallback to Mock Extraction for other types (Images/PDFs) until AI is integrated
                 extraction = ExtractionService.create_mock_extraction(db, job)

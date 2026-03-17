@@ -16,6 +16,9 @@ class JobResponse(BaseModel):
     started_at: datetime | None
     finished_at: datetime | None
     error_message: str | None
+    imported_count: int
+    duplicate_count: int
+    skipped_count: int
     created_at: datetime
     updated_at: datetime
 

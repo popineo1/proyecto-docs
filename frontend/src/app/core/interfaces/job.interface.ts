@@ -10,6 +10,9 @@ export interface JobItem {
   started_at: string | null;
   finished_at: string | null;
   error_message: string | null;
+  imported_count: number;
+  duplicate_count: number;
+  skipped_count: number;
   created_at: string;
   updated_at: string;
 }

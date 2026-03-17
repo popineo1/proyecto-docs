@@ -171,6 +171,18 @@
                     @if (job.error_message) {
                       <p class="break-words text-sm text-[var(--error-color)]">{{ job.error_message }}</p>
                     }
+
+                    @if (job.status === 'completed' || job.status === 'processed') {
+                      <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium">
+                        <span class="text-green-600">✓ {{ job.imported_count }} creados</span>
+                        @if (job.duplicate_count > 0) {
+                          <span class="text-amber-600">⚠ {{ job.duplicate_count }} duplicados</span>
+                        }
+                        @if (job.skipped_count > 0) {
+                          <span class="text-slate-500">∅ {{ job.skipped_count }} omitidos</span>
+                        }
+                      </div>
+                    }
                   </div>
 
                   <div class="w-full xl:w-auto">

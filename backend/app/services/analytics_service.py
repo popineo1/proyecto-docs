@@ -95,18 +95,43 @@ class AnalyticsService:
             .scalar()
         )
 
+        # Burn Rate Calculation
+        fixed_categories = ["Alquiler", "Personal / Seguros Sociales", "Nóminas", "Estructura"]
+        variable_categories = ["Suscripciones / Software", "Marketing", "Suministros", "Otros"]
+
+        fixed_burn = (
+            db.query(func.sum(FinancialMovement.total_amount))
+            .filter(
+                *base_filter,
+                FinancialMovement.kind.in_(expense_kinds),
+                FinancialMovement.category.in_(fixed_categories)
+            ).scalar()
+        )
+        variable_burn = (
+            db.query(func.sum(FinancialMovement.total_amount))
+            .filter(
+                *base_filter,
+                FinancialMovement.kind.in_(expense_kinds),
+                FinancialMovement.category.in_(variable_categories)
+            ).scalar()
+        )
+
         return {
             "total_income": income_total,
             "total_expenses": expense_total,
             "net_profit": income_total - expense_total,
             "vat_charged": vat_charged,
             "vat_supported": vat_supported,
-            "vat_balance": vat_supported - vat_charged, # As per Excel logic Balance de IVA (SOP - REP)
+            "vat_balance": vat_supported - vat_charged,
             "retention_sales": retention_sales,
             "retention_rent": retention_rent,
             "average_ticket": AnalyticsService._safe_decimal(avg_ticket),
             "documents_processed": int(documents_processed or 0),
             "pending_reviews": int(pending_reviews or 0),
+            "fixed_burn_rate": AnalyticsService._safe_decimal(fixed_burn),
+            "variable_burn_rate": AnalyticsService._safe_decimal(variable_burn),
+            "forecast_vat": vat_supported - vat_charged,
+            "forecast_irpf": retention_sales + retention_rent,
         }
 
     @staticmethod

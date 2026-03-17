@@ -10,6 +10,10 @@ export interface DashboardSummary {
   average_ticket: string;
   documents_processed: number;
   pending_reviews: number;
+  fixed_burn_rate: string;
+  variable_burn_rate: string;
+  forecast_vat: string;
+  forecast_irpf: string;
 }
 
 export interface MonthlyFlowRow {
