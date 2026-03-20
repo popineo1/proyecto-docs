@@ -29,38 +29,53 @@ class DocumentService:
         current_user: User,
         current_tenant: Tenant
     ) -> Document:
+        from app.core.supabase import get_supabase
         if not file.filename:
             raise ValueError("El archivo no tiene nombre")
 
         content = await file.read()
-
         if not content:
             raise ValueError("El archivo está vacío")
 
-        tenant_folder = DocumentService._ensure_tenant_folder(str(current_tenant.id))
-
-        extension = Path(file.filename).suffix
-        internal_filename = f"{uuid.uuid4()}{extension}"
-        file_path = tenant_folder / internal_filename
-
-        with open(file_path, "wb") as f:
-            f.write(content)
+        supabase = get_supabase()
+        if not supabase:
+            # Fallback a local si no hay Supabase configurado (para desarrollo)
+            tenant_folder = DocumentService._ensure_tenant_folder(str(current_tenant.id))
+            extension = Path(file.filename).suffix
+            internal_filename = f"{uuid.uuid4()}{extension}"
+            file_path = tenant_folder / internal_filename
+            with open(file_path, "wb") as f:
+                f.write(content)
+            storage_key = str(file_path).replace("\\", "/")
+        else:
+            # Subida a Supabase Storage
+            bucket_name = "documents"
+            extension = Path(file.filename).suffix
+            storage_key = f"{current_tenant.id}/{uuid.uuid4()}{extension}"
+            
+            # Nota: Supone que el bucket 'documents' ya existe
+            try:
+                supabase.storage.from_(bucket_name).upload(
+                    path=storage_key,
+                    file=content,
+                    file_options={"content-type": file.content_type}
+                )
+            except Exception as e:
+                # Si falla Suapbase, intentamos logear o manejar el error
+                raise ValueError(f"Error subiendo a Supabase: {str(e)}")
 
         checksum = hashlib.sha256(content).hexdigest()
 
         document = Document(
             tenant_id=current_tenant.id,
             uploaded_by_user_id=current_user.id,
-            storage_key=str(file_path).replace("\\", "/"),
+            storage_key=storage_key,
             filename_original=file.filename,
             mime_type=file.content_type or "application/octet-stream",
             file_size=len(content),
             checksum=checksum,
             upload_status="uploaded",
-            processing_status="pending",
-            document_type=None,
-            confidence_score=None,
-            error_message=None
+            processing_status="pending"
         )
 
         db.add(document)

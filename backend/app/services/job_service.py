@@ -96,8 +96,8 @@ class JobService:
                 job.duplicate_count = metrics.get("duplicates", 0)
                 job.skipped_count = metrics.get("skipped", 0)
             else:
-                # 2. Fallback to Mock Extraction for other types (Images/PDFs) until AI is integrated
-                extraction = ExtractionService.create_mock_extraction(db, job)
+                # 2. Use Intelligent Extraction for PDFs/Images
+                extraction = ExtractionService.run_intelligent_extraction(db, job)
                 FinancialEntryService.create_from_extraction(db, extraction)
 
             document.processing_status = "processed"
