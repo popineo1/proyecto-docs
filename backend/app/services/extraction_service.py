@@ -1,6 +1,7 @@
 import re
 import io
 import os
+import logging
 import pdfplumber
 import pytesseract
 from PIL import Image
@@ -13,6 +14,9 @@ from sqlalchemy.orm import Session
 from app.models.extraction_run import ExtractionRun
 from app.models.job import Job
 from app.models.document import Document
+
+
+logger = logging.getLogger(__name__)
 
 
 class ExtractionService:
