@@ -1,6 +1,6 @@
 from uuid import UUID
 from pathlib import Path
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status, BackgroundTasks
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -16,39 +16,47 @@ from app.services.job_service import JobService
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
 
-@router.post("/upload", response_model=DocumentUploadResponse, status_code=status.HTTP_201_CREATED)
-async def upload_document(
+@router.post("/upload", response_model=list[DocumentUploadResponse], status_code=status.HTTP_201_CREATED)
+async def upload_documents(
     background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
+    files: list[UploadFile] = File(...),
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
     db: Session = Depends(get_db)
 ):
-    try:
-        document = await DocumentService.save_uploaded_document(
-            db=db,
-            file=file,
-            current_user=current_user,
-            current_tenant=current_tenant
-        )
+    responses = []
+    for file in files:
+        try:
+            document = await DocumentService.save_uploaded_document(
+                db=db,
+                file=file,
+                current_user=current_user,
+                current_tenant=current_tenant
+            )
 
-        job = JobService.create_document_processing_job(
-            db=db,
-            document=document,
-            current_tenant=current_tenant
-        )
+            job = JobService.create_document_processing_job(
+                db=db,
+                document=document,
+                current_tenant=current_tenant
+            )
 
-        # Trigger background processing
-        background_tasks.add_task(JobService.run_processing_job, db, job)
+            # Trigger background processing
+            background_tasks.add_task(JobService.run_processing_job, db, job)
 
-        return DocumentUploadResponse(
-            message="Documento subido correctamente",
-            document=DocumentResponse.model_validate(document),
-            job=JobResponse.model_validate(job)
-        )
+            responses.append(DocumentUploadResponse(
+                message=f"Documento '{file.filename}' subido correctamente",
+                document=DocumentResponse.model_validate(document),
+                job=JobResponse.model_validate(job)
+            ))
 
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        except ValueError as e:
+            # Optionally collect errors, but for now we skip failed files
+            continue
+    
+    if not responses:
+        raise HTTPException(status_code=400, detail="No se pudo subir ningún documento")
+        
+    return responses
 
 
 @router.get("", response_model=list[DocumentResponse])
