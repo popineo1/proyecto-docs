@@ -337,10 +337,15 @@ class ExcelProcessingService:
                     if sheet_name == "Ventas": category = "Ventas"
                     elif "alquiler" in sheet_name.lower() or withholding > 0: category = "Alquileres"
 
+                # Detect if this is a 'Proposed' or 'Manual' movement
+                is_manual_sheet = sheet_name.lower() in ["movimientos sin factura", "movimientos", "banco", "extracto"]
+                m_status = "proposed" if is_manual_sheet else "confirmed"
+                m_source = "bank_import" if is_manual_sheet else "excel_import"
+
                 movement = FinancialMovement(
                     tenant_id=tenant_id,
                     source_document_id=document_id,
-                    source_type="excel_import",
+                    source_type=m_source,
                     kind=kind_to_save,
                     movement_date=m_date,
                     source_reference=ref,
@@ -351,8 +356,8 @@ class ExcelProcessingService:
                     third_party_name=tp_name,
                     concept=concept,
                     category=category,
-                    status="confirmed",
-                    needs_review=False,
+                    status=m_status,
+                    needs_review=is_manual_sheet,
                     fingerprint=fingerprint,
                     source_data=json.dumps(row.to_dict(), default=str)
                 )

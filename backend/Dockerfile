@@ -6,6 +6,9 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     gcc \
+    tesseract-ocr \
+    tesseract-ocr-spa \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar requerimientos e instalar

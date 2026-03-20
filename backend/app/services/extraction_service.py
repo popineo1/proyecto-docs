@@ -2,6 +2,9 @@ import re
 import io
 import os
 import pdfplumber
+import pytesseract
+from PIL import Image
+from pdf2image import convert_from_bytes
 from datetime import datetime
 from pathlib import Path
 from decimal import Decimal
@@ -74,7 +77,19 @@ class ExtractionService:
                 
                 # Check for empty text (scanned image)
                 if not full_text.strip():
-                    raw_data["supplier"] = "Error: PDF escaneado (requiere OCR)"
+                    logger.info("PDF appears to be scanned. Attempting OCR...")
+                    try:
+                        # Convert PDF pages to images
+                        images = convert_from_bytes(file_content.getvalue(), poppler_path=None)
+                        for i, image in enumerate(images):
+                            logger.info(f"Processing OCR for page {i+1}...")
+                            full_text += pytesseract.image_to_string(image, lang='spa') + "\n"
+                    except Exception as e:
+                        logger.error(f"OCR failed: {str(e)}")
+                        raw_data["supplier"] = f"Error OCR: {str(e)}"
+
+                if not full_text.strip():
+                    raw_data["supplier"] = "Error: PDF vacío o no legible"
                 else:
                     # 1. Búsqueda de FECHA (dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy)
                     date_match = re.search(r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", full_text)

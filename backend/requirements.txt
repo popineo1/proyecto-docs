@@ -8,6 +8,9 @@ gunicorn
 psycopg2-binary
 supabase
 pdfplumber
+pytesseract
+pdf2image
+Pillow
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
