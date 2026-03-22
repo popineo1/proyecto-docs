@@ -1,6 +1,6 @@
 $user = "u344917936"
 $pass = "Popineo1@"
-$ftpHost = "ftp://92.204.135.53/public_html/control_total_v2/"
+$ftpHost = "ftp://ftp.tuadministrativo.com/public_html/control_total_v2/"
 
 foreach ($file in Get-ChildItem .) {
     if ($file.Attributes -ne "Directory" -and $file.Name -ne "upload.ps1") {

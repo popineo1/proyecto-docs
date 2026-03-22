@@ -96,6 +96,20 @@
             Cambiar empresa
           </a>
         }
+
+        @if (user()?.is_superuser) {
+          <div class="mt-4 border-t border-[var(--border-color)] pt-4">
+            <p class="px-6 mb-2 text-xs font-bold uppercase tracking-wider text-red-600">Admin</p>
+            <a
+              routerLink="/admin/users"
+              routerLinkActive="bg-[var(--blue-selected)]"
+              class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)] block"
+              (click)="closeMobileMenu()"
+            >
+              Consola Admin
+            </a>
+          </div>
+        }
       </nav>
 
       <button
@@ -193,6 +207,24 @@
               class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
             >
               Cambiar empresa
+            </a>
+          </nav>
+        </div>
+      }
+
+      @if (user()?.is_superuser) {
+        <div class="mb-6">
+          <p class="mb-2 text-xs font-medium uppercase tracking-wide text-red-600 font-bold">
+            Administración
+          </p>
+
+          <nav class="flex flex-col gap-2">
+            <a
+              routerLink="/admin/users"
+              routerLinkActive="bg-[var(--blue-selected)]"
+              class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+            >
+              Consola Admin
             </a>
           </nav>
         </div>
