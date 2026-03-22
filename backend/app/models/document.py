@@ -41,6 +41,7 @@ class Document(Base):
     confidence_score: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
 
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    processing_summary: Mapped[str | None] = mapped_column(Text, nullable=True) # JSON with metrics, errors, ignored sheets
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at: Mapped[datetime] = mapped_column(
