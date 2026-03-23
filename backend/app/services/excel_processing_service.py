@@ -403,10 +403,15 @@ class ExcelProcessingService:
                         confidence_flags.append("default_category")
                         score -= 5
 
+                # Detect if this is a 'Proposed' or 'Manual' movement
+                is_manual_sheet = sheet_name.lower() in ["movimientos sin factura", "movimientos", "banco", "extracto"]
+                m_status = "proposed" if is_manual_sheet else "confirmed"
+                m_source = "bank_import" if is_manual_sheet else "excel_import"
+
                 movement = FinancialMovement(
                     tenant_id=tenant_id,
                     source_document_id=document_id,
-                    source_type="excel_import",
+                    source_type=m_source,
                     kind=kind_to_save,
                     movement_date=m_date,
                     source_reference=ref,

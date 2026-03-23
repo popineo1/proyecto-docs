@@ -17,6 +17,7 @@ export class AppLayoutComponent {
   readonly user = this.authState.user;
   readonly activeTenant = this.tenantState.activeTenant;
   readonly hasTenant = computed(() => !!this.tenantState.activeTenantId());
+  readonly hasMultipleTenants = computed(() => this.tenantState.tenants().length > 1);
   readonly mobileMenuOpen = signal(false);
 
   toggleMobileMenu(): void {

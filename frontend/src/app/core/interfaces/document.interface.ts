@@ -16,3 +16,9 @@ export interface DocumentItem {
   created_at: string;
   updated_at: string;
 }
+
+export interface DocumentUploadResponse {
+  message: string;
+  document: DocumentItem;
+  job: any;
+}

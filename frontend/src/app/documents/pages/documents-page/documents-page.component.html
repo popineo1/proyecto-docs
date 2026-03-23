@@ -9,7 +9,7 @@
   </div>
 
   <div class="grid grid-cols-1 gap-4 xl:grid-cols-[340px_minmax(0,1fr)] 2xl:grid-cols-[380px_minmax(0,1fr)]">
-    <div class="rounded-2xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] p-4 shadow-sm sm:p-5">
+    <div class="rounded-[2.5rem] border border-[var(--border-color)] bg-white p-8 shadow-sm">
       <h3 class="text-lg font-semibold">Subir documento</h3>
       <p class="mt-2 text-sm text-[var(--dark-gray-color)]">
         Sube un archivo para incorporarlo al sistema. Después tendrás que procesarlo para que cuente en tus datos.
@@ -19,15 +19,19 @@
         <input
           id="document-upload-input"
           type="file"
+          multiple
           class="form-input-rounded w-full"
           (change)="onFileChange($event)"
         />
 
-        @if (selectedFile(); as file) {
-          <div class="rounded-xl border border-[var(--border-color)] bg-[var(--bg-gray-color)] px-4 py-3 text-sm">
-            <p class="break-words"><strong>Archivo:</strong> {{ file.name }}</p>
-            <p class="mt-1"><strong>Tamaño:</strong> {{ formatBytes(file.size) }}</p>
-            <p class="mt-1 break-words"><strong>Tipo:</strong> {{ file.type || 'No informado' }}</p>
+        @if (selectedFiles().length > 0) {
+          <div class="rounded-xl border border-[var(--border-color)] bg-[var(--bg-gray-color)] px-4 py-3 text-sm space-y-2 max-h-48 overflow-y-auto">
+            @for (file of selectedFiles(); track $index) {
+              <div class="flex justify-between items-center gap-2 border-b border-[var(--border-color)] last:border-0 pb-2 last:pb-0">
+                <span class="truncate font-medium flex-1">{{ file.name }}</span>
+                <span class="shrink-0 text-xs text-[var(--dark-gray-color)]">{{ formatBytes(file.size) }}</span>
+              </div>
+            }
           </div>
         }
 
@@ -39,16 +43,16 @@
 
         <button
           type="button"
-          class="w-full rounded-xl bg-[var(--primary-color)] px-4 py-3 text-sm font-medium text-[var(--text-opposite-color)] hover:opacity-90 disabled:opacity-60 sm:text-base"
+          class="w-full rounded-full px-8 py-3 text-sm font-medium text-[var(--text-opposite-color)] hover:opacity-90 disabled:opacity-60 sm:text-base"
           [disabled]="uploading()"
           (click)="uploadSelectedFile()"
         >
-          {{ uploading() ? 'Subiendo...' : 'Subir documento' }}
+          {{ uploading() ? 'Subiendo...' : 'Subir documentos (' + selectedFiles().length + ')' }}
         </button>
       </div>
     </div>
 
-    <div class="rounded-2xl border border-[var(--border-color)] bg-[var(--bright-bg-color)] p-4 shadow-sm sm:p-5">
+    <div class="rounded-[2.5rem] border border-[var(--border-color)] bg-white p-8 shadow-sm">
       <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h3 class="text-lg font-semibold">Listado de documentos</h3>
 
@@ -68,7 +72,7 @@
           {{ error() }}
         </div>
       } @else if (!filteredDocuments().length) {
-        <div class="rounded-2xl border border-dashed border-[var(--border-color)] px-6 py-10 text-center text-sm text-[var(--dark-gray-color)]">
+        <div class="rounded-[2.5rem] border border-dashed border-[var(--border-color)] px-8 py-14 text-center text-sm text-[var(--dark-gray-color)]">
           No hay documentos todavía.
         </div>
       } @else {
@@ -76,6 +80,14 @@
           <table class="min-w-[760px] w-full text-left text-sm">
             <thead>
               <tr class="border-b border-[var(--border-color)] text-[var(--dark-gray-color)]">
+                <th class="px-3 py-3 font-medium w-10">
+                  <input
+                    type="checkbox"
+                    [checked]="isAllSelected()"
+                    (change)="toggleSelectAll()"
+                    class="rounded border-[var(--border-color)] text-[var(--primary-color)] focus:ring-[var(--primary-color)]"
+                  />
+                </th>
                 <th class="px-3 py-3 font-medium">Archivo</th>
                 <th class="px-3 py-3 font-medium">Tamaño</th>
                 <th class="px-3 py-3 font-medium">Subida</th>
@@ -86,7 +98,15 @@
             </thead>
             <tbody>
               @for (doc of filteredDocuments(); track doc.id) {
-                <tr class="border-b border-[var(--border-color)] last:border-b-0">
+                <tr class="border-b border-[var(--border-color)] last:border-b-0 hover:bg-slate-50 transition-colors">
+                  <td class="px-3 py-4">
+                    <input
+                      type="checkbox"
+                      [checked]="selectedIds().has(doc.id)"
+                      (change)="toggleSelection(doc.id)"
+                      class="rounded border-[var(--border-color)] text-[var(--primary-color)] focus:ring-[var(--primary-color)]"
+                    />
+                  </td>
                   <td class="px-3 py-4">
                     <div class="font-medium break-words">{{ doc.filename_original }}</div>
                     <div class="text-xs text-[var(--dark-gray-color)] break-words">{{ doc.mime_type }}</div>
@@ -137,10 +157,46 @@
   </div>
 </div>
 
+<!-- Barra de Acciones Masivas -->
+@if (selectedIds().size > 0) {
+  <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 animate-in slide-in-from-bottom-8 duration-300">
+    <div class="flex items-center gap-4 rounded-2xl border border-white/20 bg-white/80 px-6 py-4 shadow-2xl backdrop-blur-md">
+      <div class="flex flex-col">
+        <span class="text-sm font-bold text-[var(--primary-color)]">
+          {{ selectedIds().size }} seleccionado(s)
+        </span>
+        <span class="text-xs text-[var(--dark-gray-color)]">¿Qué deseas hacer?</span>
+      </div>
+
+      <div class="h-8 w-px bg-[var(--border-color)] mx-2"></div>
+
+      <div class="flex gap-2">
+        <button
+          type="button"
+          (click)="bulkDeleteSelected()"
+          [disabled]="isDeletingBulk()"
+          class="flex items-center gap-2 rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 shadow-lg shadow-red-500/20 disabled:opacity-50"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+          {{ isDeletingBulk() ? 'Borrando...' : 'Eliminar' }}
+        </button>
+
+        <button
+          type="button"
+          (click)="clearSelection()"
+          class="rounded-full px-8 py-3 text-sm font-semibold text-[var(--text-color)] hover:bg-[var(--muted-hover-color)]"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
 <!-- Preview Modal Overlay -->
 @if (previewData(); as data) {
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-    <div class="w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-3xl border border-white/20 bg-white/80 shadow-2xl backdrop-blur-md flex flex-col">
+    <div class="w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-[3rem] border border-white/20 bg-white/80 shadow-2xl backdrop-blur-md flex flex-col">
       <div class="flex items-center justify-between border-b border-[var(--border-color)] p-5 sm:p-6">
         <div>
           <h2 class="text-xl font-semibold">Previsualización del Archivo</h2>

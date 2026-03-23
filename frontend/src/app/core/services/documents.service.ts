@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { DocumentItem } from '../interfaces/document.interface';
+import { DocumentItem, DocumentUploadResponse } from '../interfaces/document.interface';
 import { JobItem } from '../interfaces/job.interface';
 
 @Injectable({ providedIn: 'root' })
@@ -22,15 +22,21 @@ export class DocumentsService {
     return this.http.get<JobItem[]>(`${this.baseUrl}/${documentId}/jobs`);
   }
 
-  upload(file: File): Observable<DocumentItem> {
+  upload(files: File[]): Observable<DocumentUploadResponse[]> {
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach(file => {
+      formData.append('files', file);
+    });
 
-    return this.http.post<DocumentItem>(`${this.baseUrl}/upload`, formData);
+    return this.http.post<DocumentUploadResponse[]>(`${this.baseUrl}/upload`, formData);
   }
 
   delete(documentId: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${documentId}`);
+  }
+
+  bulkDelete(documentIds: string[]): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/bulk-delete`, documentIds);
   }
 
   getFileUrl(id: string, download = false): string {

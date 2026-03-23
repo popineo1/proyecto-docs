@@ -1,6 +1,11 @@
 import re
 import io
+import os
+import logging
 import pdfplumber
+import pytesseract
+from PIL import Image
+from pdf2image import convert_from_bytes
 from datetime import datetime
 from pathlib import Path
 from decimal import Decimal
@@ -9,6 +14,9 @@ from sqlalchemy.orm import Session
 from app.models.extraction_run import ExtractionRun
 from app.models.job import Job
 from app.models.document import Document
+
+
+logger = logging.getLogger(__name__)
 
 
 class ExtractionService:
@@ -70,43 +78,72 @@ class ExtractionService:
                 full_text = ""
                 for page in pdf.pages:
                     full_text += page.extract_text() or ""
-                    
-                # Búsqueda de fecha
-                date_match = re.search(r"(\d{2}/\d{2}/\d{4})", full_text)
-                if date_match:
-                    raw_data["date"] = date_match.group(1)
+                
+                # Check for empty text (scanned image)
+                if not full_text.strip():
+                    logger.info("PDF appears to be scanned. Attempting OCR...")
+                    try:
+                        # Convert PDF pages to images
+                        images = convert_from_bytes(file_content.getvalue(), poppler_path=None)
+                        for i, image in enumerate(images):
+                            logger.info(f"Processing OCR for page {i+1}...")
+                            full_text += pytesseract.image_to_string(image, lang='spa') + "\n"
+                    except Exception as e:
+                        logger.error(f"OCR failed: {str(e)}")
+                        raw_data["supplier"] = f"Error OCR: {str(e)}"
 
-                # Búsqueda de Importes (Simpificado para la migración inicial)
-                # Buscamos patrones como "Total: 123,45 €" o similares
-                total_match = re.search(r"(?:Total|TOTAL|Importe Total).*?(\d+[,.]\d{2})", full_text)
-                if total_match:
-                    raw_data["total"] = float(total_match.group(1).replace(",", "."))
+                if not full_text.strip():
+                    raw_data["supplier"] = "Error: PDF vacío o no legible"
+                else:
+                    # 1. Búsqueda de FECHA (dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy)
+                    date_match = re.search(r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", full_text)
+                    if date_match:
+                        raw_data["date"] = date_match.group(1).replace("-", "/").replace(".", "/")
 
-                # Intentamos extraer tablas para el desglose de IVA si existe
-                for page in pdf.pages:
-                    tables = page.extract_tables()
-                    for table in tables:
-                        for row in table:
-                            row_str = " ".join([str(cell) for cell in row if cell])
-                            if "IVA" in row_str or "I.V.A." in row_str:
-                                iva_match = re.search(r"(\d+[,.]\d{2})", row_str)
-                                if iva_match:
-                                    raw_data["vat"] = float(iva_match.group(1).replace(",", "."))
+                    # 2. Búsqueda de TOTAL (Importe, A pagar, Total)
+                    # Soportamos coma y punto como decimales
+                    total_match = re.search(r"(?:Total|TOTAL|Importe Total|A pagar|Importe líquido).*?(\d+[.,]\d{2})", full_text, re.IGNORECASE)
+                    if total_match:
+                        val = total_match.group(1).replace(",", ".")
+                        raw_data["total"] = float(val)
 
+                    # 3. Proveedor (Primera línea suele ser el emisor)
+                    lines = [l.strip() for l in full_text.split("\n") if l.strip()]
+                    if lines and raw_data["supplier"] == "Desconocido":
+                        raw_data["supplier"] = lines[0][:50] # Cogemos los primeros 50 caracteres
+
+                    # 4. Desglose de IVA (Tablas)
+                    for page in pdf.pages:
+                        tables = page.extract_tables()
+                        for table in tables:
+                            if not table: continue
+                            for row in table:
+                                row_str = " ".join([str(cell) for cell in row if cell]).upper()
+                                if "IVA" in row_str or "I.V.A." in row_str:
+                                    iva_match = re.search(r"(\d+[.,]\d{2})", row_str)
+                                    if iva_match:
+                                        raw_data["vat"] = float(iva_match.group(1).replace(",", "."))
+
+            # Ajuste de base imponible
             raw_data["base"] = raw_data["total"] - raw_data["vat"]
 
             # 5. Normalizar resultado
             extraction.raw_output_json = raw_data
             extraction.normalized_output_json = {
-                "document_type": "invoice" if "Factura" in full_text else "ticket",
-                "customer_name": raw_data["supplier"], # En nuestro caso 'supplier' es quien emite
-                "invoice_number": re.search(r"(?:Factura|Nº|Num).*?([A-Z0-9\-/]+)", full_text).group(1) if re.search(r"(?:Factura|Nº|Num).*?([A-Z0-9\-/]+)", full_text) else "S/N",
+                "document_type": "invoice" if any(x in full_text.upper() for x in ["FACTURA", "INVOICE"]) else "ticket",
+                "customer_name": raw_data["supplier"],
+                "invoice_number": "S/N",
                 "issue_date": raw_data["date"],
                 "total_amount": raw_data["total"],
                 "tax_amount": raw_data["vat"],
                 "tax_base": raw_data["base"],
-                "kind": "expense" # Por defecto asumimos gasto si es un ticket subido, o detectamos
+                "kind": "expense"
             }
+
+            # Intento de número de factura
+            num_match = re.search(r"(?:Factura|Nº|Num|Número).*?([A-Z0-9\-/]{3,})", full_text, re.IGNORECASE)
+            if num_match:
+                extraction.normalized_output_json["invoice_number"] = num_match.group(1)
 
             extraction.confidence_score = 0.85
             extraction.status = "completed"

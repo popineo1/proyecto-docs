@@ -28,7 +28,7 @@ alembic/versions/__pycache__/
 # Node / Angular
 # =========================
 node_modules/
-dist/
+# dist/
 .angular/
 .cache/
 

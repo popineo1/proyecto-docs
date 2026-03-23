@@ -16,13 +16,15 @@
       [class.translate-x-0]="mobileMenuOpen()"
       [class.-translate-x-full]="!mobileMenuOpen()"
     >
-      <div class="mb-6 flex items-start justify-between gap-3">
+      <div class="mb-6 flex items-start gap-3">
+        <img src="favicon.ico" class="h-10 w-10 rounded-[2.5rem] shadow-sm border border-[var(--border-color)] p-2 bg-white" alt="Logo">
         <div class="min-w-0">
-          <h2 class="text-xl font-semibold sm:text-2xl">Proyecto Docs</h2>
+          <h2 class="text-xl font-semibold sm:text-2xl">Control Total</h2>
           <p class="mt-1 text-sm leading-relaxed text-[var(--dark-gray-color)] break-words">
             {{ activeTenant()?.tenant_name || 'Sin empresa seleccionada' }}
           </p>
         </div>
+      </div>
 
         <button
           type="button"
@@ -32,14 +34,13 @@
         >
           ✕
         </button>
-      </div>
 
       <nav class="flex flex-col gap-2">
         <a
           routerLink="/dashboard"
           routerLinkActive="bg-[var(--blue-selected)]"
           [routerLinkActiveOptions]="{ exact: true }"
-          class="rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+          class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
           (click)="closeMobileMenu()"
         >
           Dashboard
@@ -49,7 +50,7 @@
           routerLink="/financial-movements"
           routerLinkActive="bg-[var(--blue-selected)]"
           [routerLinkActiveOptions]="{ exact: true }"
-          class="rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+          class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
           (click)="closeMobileMenu()"
         >
           Movimientos financieros
@@ -59,7 +60,7 @@
           routerLink="/manual-movements"
           routerLinkActive="bg-[var(--blue-selected)]"
           [routerLinkActiveOptions]="{ exact: true }"
-          class="rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+          class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
           (click)="closeMobileMenu()"
         >
           Movimientos sin factura
@@ -69,7 +70,7 @@
           routerLink="/documents"
           routerLinkActive="bg-[var(--blue-selected)]"
           [routerLinkActiveOptions]="{ exact: true }"
-          class="rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+          class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
           (click)="closeMobileMenu()"
         >
           Documentos
@@ -79,25 +80,41 @@
           routerLink="/financial-entries"
           routerLinkActive="bg-[var(--blue-selected)]"
           [routerLinkActiveOptions]="{ exact: true }"
-          class="rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+          class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
           (click)="closeMobileMenu()"
         >
-          Registros documentales
+          Control Total (IA)
         </a>
 
-        <a
-          routerLink="/select-tenant"
-          routerLinkActive="bg-[var(--blue-selected)]"
-          class="rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
-          (click)="closeMobileMenu()"
-        >
-          Cambiar empresa
-        </a>
+        @if (hasMultipleTenants()) {
+          <a
+            routerLink="/select-tenant"
+            routerLinkActive="bg-[var(--blue-selected)]"
+            class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+            (click)="closeMobileMenu()"
+          >
+            Cambiar empresa
+          </a>
+        }
+
+        @if (user()?.is_superuser) {
+          <div class="mt-4 border-t border-[var(--border-color)] pt-4">
+            <p class="px-6 mb-2 text-xs font-bold uppercase tracking-wider text-red-600">Admin</p>
+            <a
+              routerLink="/admin/users"
+              routerLinkActive="bg-[var(--blue-selected)]"
+              class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)] block"
+              (click)="closeMobileMenu()"
+            >
+              Consola Admin
+            </a>
+          </div>
+        }
       </nav>
 
       <button
         type="button"
-        class="mt-auto rounded-xl bg-[var(--secondary-color)] px-4 py-3 text-sm font-semibold text-[var(--text-opposite-color)] transition-opacity hover:opacity-90"
+        class="mt-auto rounded-[3rem] bg-[var(--secondary-color)] px-8 py-5 text-sm font-semibold text-[var(--text-opposite-color)] transition-opacity hover:opacity-90"
         (click)="logout()"
       >
         Cerrar sesión
@@ -106,11 +123,14 @@
 
     <!-- Sidebar escritorio -->
     <aside class="hidden w-72 shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--sidebar-color)] p-6 lg:flex">
-      <div class="mb-8 min-w-0">
-        <h2 class="text-2xl font-semibold">Proyecto Docs</h2>
-        <p class="mt-2 text-sm leading-relaxed text-[var(--dark-gray-color)] break-words">
-          {{ activeTenant()?.tenant_name || 'Sin empresa seleccionada' }}
-        </p>
+      <div class="mb-8 flex items-start gap-3">
+        <img src="favicon.ico" class="h-10 w-10 rounded-[2.5rem] shadow-sm border border-[var(--border-color)] p-2 bg-white" alt="Logo">
+        <div class="min-w-0">
+          <h2 class="text-2xl font-semibold">Control Total</h2>
+          <p class="mt-2 text-sm leading-relaxed text-[var(--dark-gray-color)] break-words">
+            {{ activeTenant()?.tenant_name || 'Sin empresa seleccionada' }}
+          </p>
+        </div>
       </div>
 
       <div class="mb-6">
@@ -123,7 +143,7 @@
             routerLink="/dashboard"
             routerLinkActive="bg-[var(--blue-selected)]"
             [routerLinkActiveOptions]="{ exact: true }"
-            class="rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+            class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
           >
             Dashboard
           </a>
@@ -132,7 +152,7 @@
             routerLink="/financial-movements"
             routerLinkActive="bg-[var(--blue-selected)]"
             [routerLinkActiveOptions]="{ exact: true }"
-            class="rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+            class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
           >
             Movimientos financieros
           </a>
@@ -141,7 +161,7 @@
             routerLink="/manual-movements"
             routerLinkActive="bg-[var(--blue-selected)]"
             [routerLinkActiveOptions]="{ exact: true }"
-            class="rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+            class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
           >
             Movimientos sin factura
           </a>
@@ -158,7 +178,7 @@
             routerLink="/documents"
             routerLinkActive="bg-[var(--blue-selected)]"
             [routerLinkActiveOptions]="{ exact: true }"
-            class="rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+            class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
           >
             Documentos
           </a>
@@ -167,32 +187,52 @@
             routerLink="/financial-entries"
             routerLinkActive="bg-[var(--blue-selected)]"
             [routerLinkActiveOptions]="{ exact: true }"
-            class="rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+            class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
           >
-            Registros documentales
+            Control Total (IA)
           </a>
         </nav>
       </div>
 
-      <div class="mb-6">
-        <p class="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--dark-gray-color)]">
-          Empresa
-        </p>
+      @if (hasMultipleTenants()) {
+        <div class="mb-6">
+          <p class="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--dark-gray-color)]">
+            Empresa
+          </p>
 
-        <nav class="flex flex-col gap-2">
-          <a
-            routerLink="/select-tenant"
-            routerLinkActive="bg-[var(--blue-selected)]"
-            class="rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
-          >
-            Cambiar empresa
-          </a>
-        </nav>
-      </div>
+          <nav class="flex flex-col gap-2">
+            <a
+              routerLink="/select-tenant"
+              routerLinkActive="bg-[var(--blue-selected)]"
+              class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+            >
+              Cambiar empresa
+            </a>
+          </nav>
+        </div>
+      }
+
+      @if (user()?.is_superuser) {
+        <div class="mb-6">
+          <p class="mb-2 text-xs font-medium uppercase tracking-wide text-red-600 font-bold">
+            Administración
+          </p>
+
+          <nav class="flex flex-col gap-2">
+            <a
+              routerLink="/admin/users"
+              routerLinkActive="bg-[var(--blue-selected)]"
+              class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+            >
+              Consola Admin
+            </a>
+          </nav>
+        </div>
+      }
 
       <button
         type="button"
-        class="mt-auto rounded-xl bg-[var(--secondary-color)] px-4 py-3 text-sm font-semibold text-[var(--text-opposite-color)] transition-opacity hover:opacity-90"
+        class="mt-auto rounded-[3rem] bg-[var(--secondary-color)] px-8 py-5 text-sm font-semibold text-[var(--text-opposite-color)] transition-opacity hover:opacity-90"
         (click)="logout()"
       >
         Cerrar sesión
@@ -201,7 +241,7 @@
 
     <main class="min-w-0 flex-1">
       <!-- Header -->
-      <header class="border-b border-[var(--border-color)] bg-[var(--header-color)] px-4 py-4 sm:px-6 lg:px-8">
+      <header class="rounded-[3rem] border-b border-[var(--border-color)] bg-white px-8 py-6 shadow-sm mx-4 mt-4">
         <div class="flex flex-col gap-4 sm:gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div class="flex min-w-0 items-start gap-3 sm:gap-4">
             <button

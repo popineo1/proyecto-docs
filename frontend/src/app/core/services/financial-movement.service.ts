@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+import { environment } from '../../environments/environment';
 import {
   FinancialMovement,
   FinancialMovementFilters,
@@ -13,7 +14,7 @@ import { ManualMovementCreateRequest } from '../interfaces/manual-movement.inter
 })
 export class FinancialMovementService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = 'http://127.0.0.1:8000/api/v1';
+  private readonly baseUrl = environment.apiUrl;
 
   listFinancialMovements(filters: FinancialMovementFilters = {}): Observable<FinancialMovement[]> {
     let params = new HttpParams();

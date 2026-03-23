@@ -25,11 +25,13 @@ export class DocumentsPageComponent {
   readonly uploading = signal(false);
   readonly error = signal<string | null>(null);
   readonly uploadError = signal<string | null>(null);
-  readonly selectedFile = signal<File | null>(null);
+  readonly selectedFiles = signal<File[]>([]);
   readonly search = signal('');
   readonly analyzing = signal<string | null>(null);
   readonly previewData = signal<any | null>(null);
   readonly importing = signal<string | null>(null);
+  readonly selectedIds = signal<Set<string>>(new Set());
+  readonly isDeletingBulk = signal(false);
 
   readonly filteredDocuments = computed(() => {
     const term = this.search().trim().toLowerCase();
@@ -68,45 +70,115 @@ export class DocumentsPageComponent {
 
   onFileChange(event: Event): void {
     const input = event.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
-    this.selectedFile.set(file);
+    const files = input.files ? Array.from(input.files) : [];
+    this.selectedFiles.set(files);
     this.uploadError.set(null);
   }
 
   uploadSelectedFile(): void {
-    const file = this.selectedFile();
+    const files = this.selectedFiles();
 
-    if (!file) {
-      this.uploadError.set('Selecciona un archivo antes de subirlo.');
+    if (files.length === 0) {
+      this.uploadError.set('Selecciona al menos un archivo antes de subirlo.');
       return;
     }
 
     this.uploading.set(true);
     this.uploadError.set(null);
 
-    this.documentsService
-      .upload(file)
-      .pipe(finalize(() => this.uploading.set(false)))
-      .subscribe({
+    // Upload files one by one to avoid Render timeouts with large batches
+    let processedCount = 0;
+    let errorCount = 0;
+
+    const uploadFile = (index: number) => {
+      if (index >= files.length) {
+        this.uploading.set(false);
+        this.selectedFiles.set([]);
+        const fileInput = document.getElementById('document-upload-input') as HTMLInputElement | null;
+        if (fileInput) fileInput.value = '';
+
+        if (errorCount === 0) {
+          this.toast.show('Todos los documentos subidos correctamente.', 'success');
+        } else if (processedCount > 0) {
+          this.toast.show(`Se subieron ${processedCount} documentos, pero ${errorCount} fallaron.`, 'info');
+        } else {
+          this.toast.show('No se pudo subir ningún documento.', 'error');
+        }
+
+        this.loadDocuments();
+        return;
+      }
+
+      const file = files[index];
+      this.documentsService.upload([file]).subscribe({
         next: () => {
-          this.selectedFile.set(null);
-
-          const fileInput = document.getElementById('document-upload-input') as HTMLInputElement | null;
-          if (fileInput) fileInput.value = '';
-
-          this.toast.show('Documento subido correctamente.', 'success');
-
-          // Recargamos desde backend para evitar filas incompletas o datos desactualizados
-          this.loadDocuments();
+          processedCount++;
+          uploadFile(index + 1);
         },
-        error: (err) => {
-          this.uploadError.set(err?.error?.detail || 'No se pudo subir el documento.');
-        },
+        error: () => {
+          errorCount++;
+          uploadFile(index + 1);
+        }
       });
+    };
+
+    uploadFile(0);
   }
 
   goToDetail(documentId: string): void {
     this.router.navigate(['/documents', documentId]);
+  }
+
+  toggleSelection(id: string): void {
+    const current = new Set(this.selectedIds());
+    if (current.has(id)) {
+      current.delete(id);
+    } else {
+      current.add(id);
+    }
+    this.selectedIds.set(current);
+  }
+
+  isAllSelected(): boolean {
+    const docs = this.filteredDocuments();
+    if (docs.length === 0) return false;
+    return docs.every((d) => this.selectedIds().has(d.id));
+  }
+
+  toggleSelectAll(): void {
+    if (this.isAllSelected()) {
+      this.selectedIds.set(new Set());
+    } else {
+      const allIds = this.filteredDocuments().map((d) => d.id);
+      this.selectedIds.set(new Set(allIds));
+    }
+  }
+
+  bulkDeleteSelected(): void {
+    const ids = Array.from(this.selectedIds());
+    if (ids.length === 0) return;
+
+    if (!confirm(`¿Estás seguro de que deseas eliminar ${ids.length} documentos?`)) {
+      return;
+    }
+
+    this.isDeletingBulk.set(true);
+    this.documentsService.bulkDelete(ids).subscribe({
+      next: () => {
+        this.toast.show(`${ids.length} documentos eliminados correctamente.`, 'success');
+        this.clearSelection();
+        this.loadDocuments();
+        this.isDeletingBulk.set(false);
+      },
+      error: (err) => {
+        this.toast.show(err?.error?.detail || 'No se pudieron eliminar los documentos.', 'error');
+        this.isDeletingBulk.set(false);
+      }
+    });
+  }
+
+  clearSelection(): void {
+    this.selectedIds.set(new Set());
   }
 
   setSearch(value: string): void {

@@ -28,12 +28,28 @@ export const routes: Routes = [
       {
         path: 'dashboard',
         component: DashboardPageComponent,
-        title: 'Dashboard | Proyecto Docs',
+        title: 'Dashboard | Control Total',
+      },
+      {
+        path: 'admin',
+        canActivate: [adminGuard],
+        children: [
+          {
+            path: 'users',
+            component: UserManagementComponent,
+            title: 'Gestión de Usuarios | Control Total',
+          },
+          {
+            path: '',
+            pathMatch: 'full',
+            redirectTo: 'users',
+          }
+        ]
       },
       {
         path: 'financial-movements',
         component: FinancialMovementsPageComponent,
-        title: 'Movimientos financieros | Proyecto Docs',
+        title: 'Movimientos financieros | Control Total',
       },
       {
         path: 'review-inbox',
@@ -43,27 +59,27 @@ export const routes: Routes = [
       {
         path: 'manual-movements',
         component: ManualMovementsPageComponent,
-        title: 'Movimientos sin factura | Proyecto Docs',
+        title: 'Movimientos sin factura | Control Total',
       },
       {
         path: 'documents',
         component: DocumentsPageComponent,
-        title: 'Documentos | Proyecto Docs',
+        title: 'Documentos | Control Total',
       },
       {
         path: 'documents/:id',
         component: DocumentDetailPageComponent,
-        title: 'Detalle de documento | Proyecto Docs',
+        title: 'Detalle de documento | Control Total',
       },
       {
         path: 'financial-entries',
         component: FinancialEntriesPageComponent,
-        title: 'Registros financieros | Proyecto Docs',
+        title: 'Registros financieros | Control Total',
       },
       {
         path: 'select-tenant',
         component: SelectTenantPageComponent,
-        title: 'Seleccionar empresa | Proyecto Docs',
+        title: 'Seleccionar empresa | Control Total',
       },
       {
         path: '',

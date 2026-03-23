@@ -1,7 +1,8 @@
 from uuid import UUID
+import os
 from pathlib import Path
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status, BackgroundTasks
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -16,35 +17,47 @@ from app.services.job_service import JobService
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
 
-@router.post("/upload", response_model=DocumentUploadResponse, status_code=status.HTTP_201_CREATED)
-async def upload_document(
-    file: UploadFile = File(...),
+@router.post("/upload", response_model=list[DocumentUploadResponse], status_code=status.HTTP_201_CREATED)
+async def upload_documents(
+    background_tasks: BackgroundTasks,
+    files: list[UploadFile] = File(...),
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
     db: Session = Depends(get_db)
 ):
-    try:
-        document = await DocumentService.save_uploaded_document(
-            db=db,
-            file=file,
-            current_user=current_user,
-            current_tenant=current_tenant
-        )
+    responses = []
+    for file in files:
+        try:
+            document = await DocumentService.save_uploaded_document(
+                db=db,
+                file=file,
+                current_user=current_user,
+                current_tenant=current_tenant
+            )
 
-        job = JobService.create_document_processing_job(
-            db=db,
-            document=document,
-            current_tenant=current_tenant
-        )
+            job = JobService.create_document_processing_job(
+                db=db,
+                document=document,
+                current_tenant=current_tenant
+            )
 
-        return DocumentUploadResponse(
-            message="Documento subido correctamente",
-            document=DocumentResponse.model_validate(document),
-            job=JobResponse.model_validate(job)
-        )
+            # Trigger background processing
+            background_tasks.add_task(JobService.run_processing_job, db, job)
 
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+            responses.append(DocumentUploadResponse(
+                message=f"Documento '{file.filename}' subido correctamente",
+                document=DocumentResponse.model_validate(document),
+                job=JobResponse.model_validate(job)
+            ))
+
+        except ValueError as e:
+            # Optionally collect errors, but for now we skip failed files
+            continue
+    
+    if not responses:
+        raise HTTPException(status_code=400, detail="No se pudo subir ningún documento")
+        
+    return responses
 
 
 @router.get("", response_model=list[DocumentResponse])
@@ -88,10 +101,21 @@ def get_document_file(
     if document is None:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
 
-    file_path = Path(document.storage_key)
+    from app.core.supabase import get_supabase
+    supabase = get_supabase()
 
+    # Check if Supabase storage
+    if supabase and "/" in document.storage_key and not os.path.isabs(document.storage_key) and not document.storage_key.startswith("storage/"):
+        try:
+            # Generate a signed URL for 60 seconds
+            res = supabase.storage.from_("documents").create_signed_url(document.storage_key, 60)
+            return RedirectResponse(url=res["signedURL"])
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error generating download link: {str(e)}")
+
+    file_path = Path(document.storage_key)
     if not file_path.exists() or not file_path.is_file():
-        raise HTTPException(status_code=404, detail="Archivo no encontrado en el almacenamiento")
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
 
     return FileResponse(
         path=file_path,
@@ -162,3 +186,23 @@ def delete_document(
         DocumentService.delete_document(db=db, document=document)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/bulk-delete", status_code=status.HTTP_204_NO_CONTENT)
+def bulk_delete_documents(
+    document_ids: list[UUID],
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db)
+):
+    '''Borrado masivo de documentos'''
+    for doc_id in document_ids:
+        document = DocumentService.get_document_by_id(
+            db=db,
+            tenant_id=str(current_tenant.id),
+            document_id=str(doc_id)
+        )
+        if document:
+            try:
+                DocumentService.delete_document(db=db, document=document)
+            except Exception:
+                continue
+    return None
