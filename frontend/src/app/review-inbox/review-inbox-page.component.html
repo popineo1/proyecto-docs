@@ -1,0 +1,203 @@
+<style>
+  .badge-low    { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .badge-medium { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+  .badge-high   { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .badge-flag   { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+  .badge-low, .badge-medium, .badge-high, .badge-flag {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    padding: 2px 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    gap: 4px;
+  }
+
+  .inference-line {
+    font-size: 0.78rem;
+    color: var(--dark-gray-color, #6b7280);
+    padding: 4px 0;
+    border-left: 3px solid #e2e8f0;
+    padding-left: 10px;
+    margin: 3px 0;
+  }
+
+  .movement-row {
+    transition: background 0.15s;
+  }
+  .movement-row:hover {
+    background: var(--muted-hover-color, #f8fafc);
+  }
+</style>
+
+<div class="flex flex-col gap-6">
+
+  <!-- Header -->
+  <div class="flex flex-col gap-1">
+    <h1 class="text-2xl font-bold">Bandeja de revisión</h1>
+    <p class="text-sm text-[var(--dark-gray-color)]">
+      Movimientos importados con confianza baja o media que requieren verificación manual.
+    </p>
+  </div>
+
+  <!-- Filter tabs -->
+  <div class="flex flex-wrap gap-2">
+    <button
+      (click)="filterBy(null)"
+      [class.ring-2]="selectedLevel() === null"
+      class="rounded-xl border border-[var(--border-color)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--muted-hover-color)]">
+      Todos ({{ movements().length }})
+    </button>
+    <button
+      (click)="filterBy('low')"
+      [class.ring-2]="selectedLevel() === 'low'"
+      class="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100">
+      🔴 Confianza baja ({{ lowCount() }})
+    </button>
+    <button
+      (click)="filterBy('medium')"
+      [class.ring-2]="selectedLevel() === 'medium'"
+      class="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-800 transition hover:bg-yellow-100">
+      🟡 Confianza media ({{ mediumCount() }})
+    </button>
+  </div>
+
+  <!-- Error -->
+  @if (error()) {
+    <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {{ error() }}
+    </div>
+  }
+
+  <!-- Loading -->
+  @if (loading()) {
+    <div class="flex items-center gap-3 py-10 text-sm text-[var(--dark-gray-color)]">
+      <span class="animate-spin">⏳</span> Cargando movimientos pendientes…
+    </div>
+  }
+
+  <!-- Empty -->
+  @if (!loading() && movements().length === 0) {
+    <div class="flex flex-col items-center gap-3 py-16 text-center text-[var(--dark-gray-color)]">
+      <span class="text-5xl">✅</span>
+      <p class="text-lg font-semibold">Todo revisado</p>
+      <p class="text-sm">No hay movimientos pendientes de revisión con el filtro actual.</p>
+    </div>
+  }
+
+  <!-- Table -->
+  @if (!loading() && movements().length > 0) {
+    <div class="overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--card-color)]">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-[var(--border-color)] text-xs uppercase tracking-wide text-[var(--dark-gray-color)]">
+              <th class="px-4 py-3 text-left font-medium">Fecha</th>
+              <th class="px-4 py-3 text-left font-medium">Tercero</th>
+              <th class="px-4 py-3 text-left font-medium">Concepto</th>
+              <th class="px-4 py-3 text-left font-medium">Categoría</th>
+              <th class="px-4 py-3 text-right font-medium">Base</th>
+              <th class="px-4 py-3 text-right font-medium">IVA</th>
+              <th class="px-4 py-3 text-right font-medium">Total</th>
+              <th class="px-4 py-3 text-center font-medium">Confianza</th>
+              <th class="px-4 py-3 text-center font-medium">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of movements(); track m.id) {
+              <!-- Main row -->
+              <tr
+                class="movement-row cursor-pointer border-b border-[var(--border-color)]"
+                (click)="toggleExpand(m.id)">
+                <td class="px-4 py-3 whitespace-nowrap text-[var(--dark-gray-color)]">
+                  {{ m.movement_date | date:'dd/MM/yyyy' }}
+                </td>
+                <td class="px-4 py-3 font-medium max-w-[180px] truncate" [title]="m.third_party_name ?? ''">
+                  {{ m.third_party_name || '—' }}
+                </td>
+                <td class="px-4 py-3 text-[var(--dark-gray-color)] max-w-[220px] truncate" [title]="m.concept ?? ''">
+                  {{ m.concept || '—' }}
+                </td>
+                <td class="px-4 py-3 text-[var(--dark-gray-color)]">
+                  {{ m.category || '—' }}
+                </td>
+                <td class="px-4 py-3 text-right tabular-nums">
+                  {{ toNumber(m.net_amount) | number:'1.2-2' }} €
+                </td>
+                <td class="px-4 py-3 text-right tabular-nums">
+                  {{ toNumber(m.tax_amount) | number:'1.2-2' }} €
+                </td>
+                <td class="px-4 py-3 text-right tabular-nums font-semibold">
+                  {{ toNumber(m.total_amount) | number:'1.2-2' }} €
+                </td>
+                <td class="px-4 py-3 text-center">
+                  <span [class]="confidenceBadgeClass(m.confidence_level)">
+                    {{ confidenceLabel(m.confidence_level) }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-center">
+                  <button
+                    class="rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--green-selected,#dcfce7)]"
+                    (click)="$event.stopPropagation(); markAsReviewed(m)">
+                    ✓ Revisado
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Expanded detail row -->
+              @if (expandedId() === m.id) {
+                <tr class="bg-[var(--bg-gray-color,#f8fafc)] border-b border-[var(--border-color)]">
+                  <td colspan="9" class="px-6 py-4">
+                    <div class="grid gap-4 md:grid-cols-2">
+
+                      <!-- Confidence flags -->
+                      @if (parseFlags(m.confidence_flags).length > 0) {
+                        <div>
+                          <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--dark-gray-color)]">Alertas detectadas</p>
+                          <div class="flex flex-wrap gap-1.5">
+                            @for (flag of parseFlags(m.confidence_flags); track flag) {
+                              <span class="badge-flag">⚠ {{ flagLabel(flag) }}</span>
+                            }
+                          </div>
+                        </div>
+                      }
+
+                      <!-- Inference log -->
+                      @if (parseInferenceLog(m.inference_log).length > 0) {
+                        <div>
+                          <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--dark-gray-color)]">Log de inferencias</p>
+                          <div class="flex flex-col gap-1">
+                            @for (entry of parseInferenceLog(m.inference_log); track entry) {
+                              <div class="inference-line">{{ entry }}</div>
+                            }
+                          </div>
+                        </div>
+                      }
+
+                    </div>
+
+                    <!-- Score bar -->
+                    <div class="mt-3 flex items-center gap-3">
+                      <span class="text-xs text-[var(--dark-gray-color)]">Score:</span>
+                      <div class="h-2 w-48 overflow-hidden rounded-full bg-gray-200">
+                        <div
+                          class="h-full rounded-full transition-all"
+                          [style.width]="(toNumber(m.confidence_score) * 100) + '%'"
+                          [class]="toNumber(m.confidence_score) >= 0.9 ? 'bg-green-500' : toNumber(m.confidence_score) >= 0.6 ? 'bg-yellow-400' : 'bg-red-500'">
+                        </div>
+                      </div>
+                      <span class="text-xs font-mono">{{ (toNumber(m.confidence_score) * 100).toFixed(0) }}%</span>
+                    </div>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+</div>

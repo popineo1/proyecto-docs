@@ -74,6 +74,11 @@ class FinancialMovementUpdate(BaseModel):
 class FinancialMovementResponse(FinancialMovementBase):
     id: UUID
     tenant_id: UUID
+    confidence_score: Decimal | None = None
+    confidence_level: str | None = None
+    confidence_flags: str | None = None
+    source_raw_data: str | None = None
+    inference_log: str | None = None
     created_at: datetime
     updated_at: datetime
 

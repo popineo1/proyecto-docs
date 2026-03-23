@@ -124,3 +124,23 @@ class FinancialMovementService:
         self.db.delete(movement)
         self.db.commit()
         return True
+
+    def list_for_review(
+        self,
+        tenant_id: uuid.UUID,
+        confidence_level: str | None = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> Sequence[FinancialMovement]:
+        """Return movements that need review, ordered by lowest confidence first."""
+        stmt = select(FinancialMovement).where(
+            FinancialMovement.tenant_id == tenant_id,
+            FinancialMovement.needs_review.is_(True),
+        )
+        if confidence_level:
+            stmt = stmt.where(FinancialMovement.confidence_level == confidence_level)
+        stmt = stmt.order_by(
+            FinancialMovement.confidence_score.asc().nullsfirst(),
+            FinancialMovement.movement_date.desc().nullslast(),
+        ).offset(skip).limit(limit)
+        return self.db.execute(stmt).scalars().all()

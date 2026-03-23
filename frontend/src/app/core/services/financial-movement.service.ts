@@ -39,7 +39,7 @@ export class FinancialMovementService {
   getFinancialMovementById(id: string): Observable<FinancialMovement> {
     return this.http.get<FinancialMovement>(`${this.baseUrl}/financial-movements/${id}`);
   }
-  
+
   updateFinancialMovement(id: string, payload: Partial<FinancialMovement>): Observable<FinancialMovement> {
     return this.http.patch<FinancialMovement>(`${this.baseUrl}/financial-movements/${id}`, payload);
   }
@@ -62,6 +62,22 @@ export class FinancialMovementService {
     if (params?.limit !== undefined) httpParams = httpParams.set('limit', String(params.limit));
 
     return this.http.get<FinancialMovement[]>(`${this.baseUrl}/manual-movements`, {
+      params: httpParams,
+    });
+  }
+
+  getReviewInbox(params?: {
+    confidence_level?: 'low' | 'medium' | null;
+    skip?: number;
+    limit?: number;
+  }): Observable<FinancialMovement[]> {
+    let httpParams = new HttpParams();
+
+    if (params?.confidence_level) httpParams = httpParams.set('confidence_level', params.confidence_level);
+    if (params?.skip !== undefined) httpParams = httpParams.set('skip', String(params.skip));
+    if (params?.limit !== undefined) httpParams = httpParams.set('limit', String(params.limit));
+
+    return this.http.get<FinancialMovement[]>(`${this.baseUrl}/financial-movements/review-inbox`, {
       params: httpParams,
     });
   }

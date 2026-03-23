@@ -88,6 +88,12 @@ class FinancialMovement(Base):
 
     fingerprint: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     source_data: Mapped[dict | None] = mapped_column(Text, nullable=True) # Storing as text or JSON if possible
+    
+    # Confidence & Traceability
+    confidence_level: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)  # high | medium | low
+    confidence_flags: Mapped[list | None] = mapped_column(Text, nullable=True) # JSON or Comma-separated
+    source_raw_data: Mapped[str | None] = mapped_column(Text, nullable=True) # JSON of the original row
+    inference_log: Mapped[str | None] = mapped_column(Text, nullable=True) # JSON log of changes
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at: Mapped[datetime] = mapped_column(

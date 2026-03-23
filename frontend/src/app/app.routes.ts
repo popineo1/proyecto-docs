@@ -11,8 +11,7 @@ import { DocumentDetailPageComponent } from './documents/pages/document-detail-p
 import { FinancialEntriesPageComponent } from './financial-entries/financial-entries-page/financial-entries-page.component';
 import { FinancialMovementsPageComponent } from './financial-movements/financial-movements-page.component';
 import { ManualMovementsPageComponent } from './manual-movements/manual-movements-page.component';
-import { adminGuard } from './core/guards/admin.guard';
-import { UserManagementComponent } from './features/admin/pages/user-management/user-management.component';
+import { ReviewInboxPageComponent } from './review-inbox/review-inbox-page.component';
 
 export const routes: Routes = [
   {
@@ -51,6 +50,11 @@ export const routes: Routes = [
         path: 'financial-movements',
         component: FinancialMovementsPageComponent,
         title: 'Movimientos financieros | Control Total',
+      },
+      {
+        path: 'review-inbox',
+        component: ReviewInboxPageComponent,
+        title: 'Bandeja de revisión | Proyecto Docs',
       },
       {
         path: 'manual-movements',

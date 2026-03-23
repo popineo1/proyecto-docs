@@ -110,3 +110,25 @@ def delete_financial_movement(
         raise HTTPException(status_code=404, detail="Movimiento no encontrado.")
 
     return None
+
+
+@router.get("/review-inbox", response_model=list[FinancialMovementResponse])
+def get_review_inbox(
+    confidence_level: str | None = Query(default=None, description="Filter by level: low, medium"),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    _: User = Depends(get_current_user),
+):
+    """
+    Returns movements flagged for review (needs_review=True),
+    ordered from lowest to highest confidence.
+    """
+    service = FinancialMovementService(db)
+    return service.list_for_review(
+        tenant.id,
+        confidence_level=confidence_level,
+        skip=skip,
+        limit=limit,
+    )

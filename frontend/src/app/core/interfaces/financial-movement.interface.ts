@@ -28,8 +28,15 @@ export interface FinancialMovement {
   currency: string;
   document_type: string | null;
   confidence_score: string | null;
+  confidence_level: 'high' | 'medium' | 'low' | null;
+  confidence_flags: string | null;
+  source_raw_data: string | null;
+  inference_log: string | null;
   needs_review: boolean;
   notes: string | null;
+
+  fingerprint: string | null;
+  source_data: string | null;
 
   created_at: string;
   updated_at: string;
