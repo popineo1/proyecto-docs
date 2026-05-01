@@ -76,6 +76,7 @@ class JobService:
                 raise ValueError("Documento no encontrado")
 
             document.processing_status = "processing"
+            document.error_message = None
             db.commit()
 
             # Routing based on MIME type

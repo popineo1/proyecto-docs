@@ -107,10 +107,47 @@ class ExtractionService:
                         val = total_match.group(1).replace(",", ".")
                         raw_data["total"] = float(val)
 
-                    # 3. Proveedor (Primera línea suele ser el emisor)
+                    # 3. Emisor y receptor
                     lines = [l.strip() for l in full_text.split("\n") if l.strip()]
                     if lines and raw_data["supplier"] == "Desconocido":
-                        raw_data["supplier"] = lines[0][:50] # Cogemos los primeros 50 caracteres
+                        raw_data["supplier"] = lines[0][:100]
+
+                    # Emisor: primeras líneas antes de encontrar datos de cliente
+                    raw_data["issuer"] = lines[0][:100] if lines else None
+
+                    # Receptor: buscar patrones habituales de "datos del cliente"
+                    receiver_match = re.search(
+                        r"(?:Nombre[/]Raz[oó]n\s+Social[:\s]+"
+                        r"|DATOS\s+(?:DEL\s+)?CLIENTE[:\s]*[\n\r]+Nombre[/]Raz[oó]n\s+Social[:\s]+"
+                        r"|Cliente[:\s]+"
+                        r"|DATOS\s+(?:DEL\s+)?CLIENTE[\s]*[\n\r]+"
+                        r"|Destinatario[:\s]+"
+                        r"|Facturar\s+a[:\s]+"
+                        r"|Atenci[oó]n[:\s]+)"
+                        r"([A-ZÁÉÍÓÚÑ\w][^\n\r]{2,80})",
+                        full_text,
+                        re.IGNORECASE
+                    )
+                    raw_data["receiver"] = receiver_match.group(1).strip()[:100] if receiver_match else None
+
+                    # Fallback receptor: nombre propio (2-3 palabras) en la línea anterior a "NIF"
+                    # Usa findall para obtener todos los matches y descartar el emisor conocido
+                    if not raw_data["receiver"]:
+                        before_nif_matches = re.findall(
+                            r"([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+ [A-ZÁÉÍÓÚÑ][a-záéíóúñ]+"
+                            r"(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)[^\n\r]*[\n\r]+NIF",
+                            full_text
+                        )
+                        issuer_norm = (raw_data.get("issuer") or "").lower()
+                        for match in before_nif_matches:
+                            candidate = match.strip()[:100]
+                            if candidate.lower() != issuer_norm and issuer_norm not in candidate.lower():
+                                raw_data["receiver"] = candidate
+                                break
+
+                    # Señal de factura emitida propia: pie con "ELABORADO POR"
+                    raw_data["has_elaborado_por"] = bool(re.search(r"ELABORADO\s+POR", full_text, re.IGNORECASE))
+
 
                     # 4. Desglose de IVA (Tablas)
                     for page in pdf.pages:
@@ -131,13 +168,14 @@ class ExtractionService:
             extraction.raw_output_json = raw_data
             extraction.normalized_output_json = {
                 "document_type": "invoice" if any(x in full_text.upper() for x in ["FACTURA", "INVOICE"]) else "ticket",
-                "customer_name": raw_data["supplier"],
+                "supplier_name": raw_data.get("issuer"),
+                "receiver_name": raw_data.get("receiver"),
+                "customer_name": raw_data.get("receiver") or raw_data["supplier"],
                 "invoice_number": "S/N",
                 "issue_date": raw_data["date"],
                 "total_amount": raw_data["total"],
                 "tax_amount": raw_data["vat"],
                 "tax_base": raw_data["base"],
-                "kind": "expense"
             }
 
             # Intento de número de factura

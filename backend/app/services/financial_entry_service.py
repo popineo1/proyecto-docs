@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 
@@ -6,8 +6,29 @@ from sqlalchemy.orm import Session
 
 from app.models.extraction_run import ExtractionRun
 from app.models.financial_entry import FinancialEntry
+from app.models.tenant import Tenant
 from app.services.document_classifier import DocumentClassifier
 from app.services.financial_movement_writer import FinancialMovementWriter
+
+
+_DATE_FORMATS = [
+    "%d/%m/%Y",
+    "%d/%m/%y",
+    "%d-%m-%Y",
+    "%d-%m-%y",
+    "%Y-%m-%d",
+    "%d.%m.%Y",
+    "%d.%m.%y",
+]
+
+
+def _parse_date(raw: str) -> date | None:
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(raw.strip(), fmt).date()
+        except ValueError:
+            continue
+    return None
 
 
 class FinancialEntryService:
@@ -19,16 +40,30 @@ class FinancialEntryService:
         data = extraction.normalized_output_json or {}
         raw_data = extraction.raw_output_json or {}
 
+        tenant = db.query(Tenant).filter(Tenant.id == extraction.tenant_id).first()
+        tenant_name = tenant.name if tenant else None
+
         entry_kind = DocumentClassifier.classify(
             normalized_data=data,
             raw_data=raw_data,
+            tenant_name=tenant_name,
         )
 
-        supplier_or_customer = (
-            data.get("customer_name")
-            or data.get("client_name")
-            or data.get("supplier_name")
-        )
+        if entry_kind == "income":
+            # tercero = quien me paga → receptor/cliente de la factura
+            supplier_or_customer = (
+                data.get("receiver_name")
+                or data.get("customer_name")
+                or data.get("client_name")
+            )
+        else:
+            # tercero = quien me cobra → emisor/proveedor de la factura
+            supplier_or_customer = (
+                data.get("supplier_name")
+                or raw_data.get("issuer")
+                or data.get("customer_name")
+            )
+
 
         issue_date_raw = data.get("issue_date")
         total_amount_raw = data.get("total_amount")
@@ -37,7 +72,7 @@ class FinancialEntryService:
 
         issue_date_value = None
         if issue_date_raw:
-            issue_date_value = date.fromisoformat(issue_date_raw)
+            issue_date_value = _parse_date(issue_date_raw)
 
         total_amount = None
         if total_amount_raw is not None:

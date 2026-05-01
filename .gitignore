@@ -54,3 +54,5 @@ Thumbs.db
 # =========================
 *.log
 coverage/
+
+CLAUDE.md

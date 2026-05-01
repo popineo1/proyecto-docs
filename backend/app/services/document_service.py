@@ -147,14 +147,18 @@ class DocumentService:
                     # The user specifically complained about 400 error, so let's make it robust.
                     pass 
 
-        # Borrar movimientos financieros asociados antes de borrar las entradas (que tienen FK SET NULL o CASCADE)
-        # Para mayor seguridad, buscamos movimientos que apunten a este documento
+        # Borrar en orden para respetar FKs:
+        # 1. Movimientos financieros (referencian FinancialEntry y Document)
         from app.models.financial_movement import FinancialMovement
         db.query(FinancialMovement).filter(FinancialMovement.source_document_id == document.id).delete(synchronize_session=False)
 
-        # Borrar jobs asociados si no tienes cascade ya configurado
+        # 2. Entradas financieras (referencian Document)
+        from app.models.financial_entry import FinancialEntry
+        db.query(FinancialEntry).filter(FinancialEntry.document_id == document.id).delete(synchronize_session=False)
+
+        # 3. Jobs
         db.query(Job).filter(Job.document_id == document.id).delete(synchronize_session=False)
 
-        # Borrar documento
+        # 4. Documento
         db.delete(document)
         db.commit()

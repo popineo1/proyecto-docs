@@ -16,7 +16,6 @@ class DocumentClassifier:
     }
 
     EXPENSE_TYPES = {
-        "invoice",
         "supplier_invoice",
         "purchase_invoice",
         "expense",
@@ -60,14 +59,36 @@ class DocumentClassifier:
         text = "".join(ch for ch in text if not unicodedata.combining(ch))
         return text
 
+    @staticmethod
+    def _matches_tenant(name: str | None, tenant_name: str | None) -> bool:
+        if not name or not tenant_name:
+            return False
+        n = DocumentClassifier._normalize(name)
+        t = DocumentClassifier._normalize(tenant_name)
+        return t in n or n in t
+
     @classmethod
-    def classify(cls, normalized_data: dict | None, raw_data: dict | None = None) -> str:
+    def classify(cls, normalized_data: dict | None, raw_data: dict | None = None, tenant_name: str | None = None) -> str:
         normalized_data = normalized_data or {}
         raw_data = raw_data or {}
 
         explicit_kind = cls._normalize(normalized_data.get("kind"))
         if explicit_kind in {"income", "expense"}:
             return explicit_kind
+
+        # Señal muy fuerte: pie de factura propia ("ELABORADO POR")
+        if raw_data.get("has_elaborado_por"):
+            return "income"
+
+        # Comparación con el tenant actual: si sabemos quién emite y quién recibe
+        if tenant_name:
+            supplier_name_raw = normalized_data.get("supplier_name")
+            receiver_name_raw = normalized_data.get("receiver_name")
+            if supplier_name_raw or receiver_name_raw:
+                if cls._matches_tenant(supplier_name_raw, tenant_name):
+                    return "income"
+                if cls._matches_tenant(receiver_name_raw, tenant_name):
+                    return "expense"
 
         document_type = cls._normalize(normalized_data.get("document_type"))
         if document_type in cls.INCOME_TYPES:

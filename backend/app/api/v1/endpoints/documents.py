@@ -1,9 +1,12 @@
 from uuid import UUID
 import os
+import logging
 from pathlib import Path
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status, BackgroundTasks
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_tenant, get_current_user
@@ -19,13 +22,13 @@ router = APIRouter(prefix="/documents", tags=["Documents"])
 
 @router.post("/upload", response_model=list[DocumentUploadResponse], status_code=status.HTTP_201_CREATED)
 async def upload_documents(
-    background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
     db: Session = Depends(get_db)
 ):
     responses = []
+    errors: list[dict] = []
     for file in files:
         try:
             document = await DocumentService.save_uploaded_document(
@@ -41,22 +44,36 @@ async def upload_documents(
                 current_tenant=current_tenant
             )
 
-            # Trigger background processing
-            background_tasks.add_task(JobService.run_processing_job, db, job)
+            JobService.run_processing_job(db, job)
+            db.refresh(document)
 
             responses.append(DocumentUploadResponse(
-                message=f"Documento '{file.filename}' subido correctamente",
+                message=f"Documento '{file.filename}' subido y procesado correctamente",
                 document=DocumentResponse.model_validate(document),
                 job=JobResponse.model_validate(job)
             ))
 
         except ValueError as e:
-            # Optionally collect errors, but for now we skip failed files
+            logger.exception("Fallo al subir documento '%s': %s", file.filename, e)
+            errors.append({"filename": file.filename, "error": str(e)})
             continue
-    
+        except Exception as e:
+            logger.exception("Fallo inesperado al subir documento '%s'", file.filename)
+            errors.append({
+                "filename": file.filename,
+                "error": f"{type(e).__name__}: {str(e)}"
+            })
+            continue
+
     if not responses:
-        raise HTTPException(status_code=400, detail="No se pudo subir ningún documento")
-        
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "No se pudo subir ningún documento",
+                "errors": errors
+            }
+        )
+
     return responses
 
 
