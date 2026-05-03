@@ -66,6 +66,19 @@ export class FinancialMovementService {
     });
   }
 
+  exportToExcel(filters: Pick<FinancialMovementFilters, 'kind' | 'date_from' | 'date_to' | 'category'> = {}): Observable<Blob> {
+    let params = new HttpParams();
+    if (filters.kind) params = params.set('kind', filters.kind);
+    if (filters.date_from) params = params.set('date_from', filters.date_from);
+    if (filters.date_to) params = params.set('date_to', filters.date_to);
+    if (filters.category) params = params.set('category', filters.category);
+
+    return this.http.get(`${this.baseUrl}/financial-movements/export`, {
+      params,
+      responseType: 'blob',
+    });
+  }
+
   getReviewInbox(params?: {
     confidence_level?: 'low' | 'medium' | null;
     skip?: number;

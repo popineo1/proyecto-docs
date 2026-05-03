@@ -48,6 +48,7 @@ export class RegisterPageComponent {
       .subscribe({
         next: (res) => {
           this.authState.setToken(res.access_token);
+          this.authState.setRefreshToken(res.refresh_token);
 
           this.authService.me().subscribe({
             next: (user) => {

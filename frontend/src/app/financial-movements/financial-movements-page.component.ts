@@ -3,6 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { FinancialMovementService } from '../core/services/financial-movement.service';
 import { FinancialMovement, FinancialMovementFilters } from '../core/interfaces/financial-movement.interface';
+import { ToastService } from '../core/services/toast.service';
 
 
 @Component({
@@ -13,6 +14,9 @@ import { FinancialMovement, FinancialMovementFilters } from '../core/interfaces/
 })
 export class FinancialMovementsPageComponent {
   private readonly financialMovementService = inject(FinancialMovementService);
+  private readonly toast = inject(ToastService);
+
+  readonly exporting = signal(false);
 
   readonly movements = signal<FinancialMovement[]>([]);
   readonly loading = signal(true);
@@ -94,6 +98,31 @@ export class FinancialMovementsPageComponent {
       limit: 100,
     });
     this.loadMovements();
+  }
+
+  exportExcel(): void {
+    const f = this.filters();
+    this.exporting.set(true);
+    this.financialMovementService.exportToExcel({
+      kind: f.kind ?? undefined,
+      date_from: f.date_from ?? undefined,
+      date_to: f.date_to ?? undefined,
+      category: f.category ?? undefined,
+    }).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `movimientos_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.exporting.set(false);
+      },
+      error: () => {
+        this.toast.show('Error al exportar. Inténtalo de nuevo.', 'error');
+        this.exporting.set(false);
+      },
+    });
   }
 
   updateFilter<K extends keyof FinancialMovementFilters>(key: K, value: FinancialMovementFilters[K]): void {

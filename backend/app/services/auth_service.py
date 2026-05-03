@@ -6,7 +6,7 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.membership import Membership
 from app.repositories.user_repository import UserRepository
-from app.core.security import get_password_hash, verify_password, create_access_token
+from app.core.security import get_password_hash, verify_password, create_access_token, create_refresh_token
 
 
 class AuthService:
@@ -77,7 +77,8 @@ class AuthService:
         db.refresh(user)
 
         token = create_access_token(str(user.id))
-        return user, token
+        refresh_token = create_refresh_token(str(user.id))
+        return user, token, refresh_token
 
     @staticmethod
     def login(db: Session, email: str, password: str):
@@ -92,4 +93,5 @@ class AuthService:
             raise ValueError("Usuario inactivo")
 
         token = create_access_token(str(user.id))
-        return token
+        refresh_token = create_refresh_token(str(user.id))
+        return token, refresh_token

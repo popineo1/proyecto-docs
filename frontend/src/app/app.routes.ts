@@ -14,6 +14,8 @@ import { ManualMovementsPageComponent } from './manual-movements/manual-movement
 import { ReviewInboxPageComponent } from './review-inbox/review-inbox-page.component';
 import { adminGuard } from './core/guards/admin.guard';
 import { UserManagementComponent } from './features/admin/pages/user-management/user-management.component';
+import { MembersPageComponent } from './features/members/members-page.component';
+import { AcceptInvitationPageComponent } from './features/members/accept-invitation-page.component';
 
 
 export const routes: Routes = [
@@ -85,11 +87,21 @@ export const routes: Routes = [
         title: 'Seleccionar empresa | Control Total',
       },
       {
+        path: 'members',
+        component: MembersPageComponent,
+        title: 'Equipo | Control Total',
+      },
+      {
         path: '',
         pathMatch: 'full',
         redirectTo: 'dashboard',
       },
     ],
+  },
+  {
+    path: 'join/:token',
+    component: AcceptInvitationPageComponent,
+    title: 'Unirse al equipo | Control Total',
   },
   {
     path: '**',

@@ -32,6 +32,10 @@ export class AuthService {
     return this.http.post<TokenResponse>(`${this.baseUrl}/register`, payload);
   }
 
+  refresh(refreshToken: string): Observable<TokenResponse> {
+    return this.http.post<TokenResponse>(`${this.baseUrl}/refresh`, { refresh_token: refreshToken });
+  }
+
   me(): Observable<MeResponse> {
     return this.http.get<MeResponse>(`${this.baseUrl}/me`);
   }

@@ -1,7 +1,11 @@
+import io
 import uuid
 from datetime import date
 
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -110,6 +114,70 @@ def delete_financial_movement(
         raise HTTPException(status_code=404, detail="Movimiento no encontrado.")
 
     return None
+
+
+@router.get("/export")
+def export_financial_movements(
+    kind: str | None = Query(default=None),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    category: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    _: User = Depends(get_current_user),
+):
+    service = FinancialMovementService(db)
+    movements = service.list_by_tenant(
+        tenant.id,
+        kind=kind,
+        date_from=date_from,
+        date_to=date_to,
+        category=category,
+        limit=5000,
+    )
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Movimientos"
+
+    headers = ["Fecha", "Tipo", "Tercero", "Concepto", "Categoría",
+               "Base (€)", "IVA (€)", "Retención (€)", "Total (€)", "Estado", "Origen"]
+    header_fill = PatternFill("solid", fgColor="1E3A5F")
+    header_font = Font(color="FFFFFF", bold=True)
+
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+
+    for row, m in enumerate(movements, 2):
+        ws.cell(row=row, column=1, value=str(m.movement_date) if m.movement_date else "")
+        ws.cell(row=row, column=2, value="Ingreso" if m.kind == "income" else "Gasto")
+        ws.cell(row=row, column=3, value=m.third_party_name or "")
+        ws.cell(row=row, column=4, value=m.concept or "")
+        ws.cell(row=row, column=5, value=m.category or "")
+        ws.cell(row=row, column=6, value=float(m.net_amount or 0))
+        ws.cell(row=row, column=7, value=float(m.tax_amount or 0))
+        ws.cell(row=row, column=8, value=float(m.withholding_amount or 0))
+        ws.cell(row=row, column=9, value=float(m.total_amount or 0))
+        ws.cell(row=row, column=10, value=m.status or "")
+        ws.cell(row=row, column=11, value=m.source_type or "")
+
+    for col in ws.columns:
+        max_len = max((len(str(c.value or "")) for c in col), default=10)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    filename = f"movimientos_{tenant.name}_{date.today()}.xlsx".replace(" ", "_")
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 
 @router.get("/review-inbox", response_model=list[FinancialMovementResponse])

@@ -3,6 +3,7 @@ import { StorageService } from './storage.service';
 import { MeResponse } from '../interfaces/auth.interface';
 
 const TOKEN_KEY = 'docs_token';
+const REFRESH_TOKEN_KEY = 'docs_refresh_token';
 const USER_KEY = 'docs_user';
 
 @Injectable({ providedIn: 'root' })
@@ -27,6 +28,14 @@ export class AuthStateService {
     this.storage.set(TOKEN_KEY, token);
   }
 
+  setRefreshToken(token: string): void {
+    this.storage.set(REFRESH_TOKEN_KEY, token);
+  }
+
+  getRefreshToken(): string | null {
+    return this.storage.get<string>(REFRESH_TOKEN_KEY);
+  }
+
   setUser(user: MeResponse | null): void {
     this.userSignal.set(user);
     if (user) this.storage.set(USER_KEY, user);
@@ -37,6 +46,7 @@ export class AuthStateService {
     this.tokenSignal.set(null);
     this.userSignal.set(null);
     this.storage.remove(TOKEN_KEY);
+    this.storage.remove(REFRESH_TOKEN_KEY);
     this.storage.remove(USER_KEY);
   }
 }

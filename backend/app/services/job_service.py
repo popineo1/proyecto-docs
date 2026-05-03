@@ -1,14 +1,18 @@
 from datetime import datetime
+import logging
 import time
 
 from sqlalchemy.orm import Session
 
+from app.core.database import SessionLocal
 from app.models.document import Document
 from app.models.job import Job
 from app.models.tenant import Tenant
 from app.services.excel_processing_service import ExcelProcessingService
 from app.services.extraction_service import ExtractionService
 from app.services.financial_entry_service import FinancialEntryService
+
+logger = logging.getLogger(__name__)
 
 
 class JobService:
@@ -114,4 +118,19 @@ class JobService:
         
         db.commit()
         db.refresh(job)
-        return job
+        return job
+
+    @staticmethod
+    def run_processing_job_background(job_id: str) -> None:
+        """Ejecuta un job en background con su propia sesión de BD."""
+        db = SessionLocal()
+        try:
+            job = db.query(Job).filter(Job.id == job_id).first()
+            if not job:
+                logger.error("Background job %s no encontrado", job_id)
+                return
+            JobService.run_processing_job(db, job)
+        except Exception as e:
+            logger.exception("Error inesperado en background job %s: %s", job_id, e)
+        finally:
+            db.close()

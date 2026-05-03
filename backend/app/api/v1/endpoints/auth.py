@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.security import create_access_token, create_refresh_token, decode_refresh_token
 from app.schemas.auth import RegisterRequest, TokenResponse
 from app.schemas.user import UserResponse
 from app.schemas.membership import UserTenantResponse
@@ -21,14 +22,14 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     try:
-        _, token = AuthService.register(
+        _, token, refresh_token = AuthService.register(
             db=db,
             company_name=payload.company_name,
             full_name=payload.full_name,
             email=payload.email,
             password=payload.password
         )
-        return TokenResponse(access_token=token)
+        return TokenResponse(access_token=token, refresh_token=refresh_token)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -39,14 +40,32 @@ def login(
     db: Session = Depends(get_db)
 ):
     try:
-        token = AuthService.login(
+        token, refresh_token = AuthService.login(
             db=db,
             email=form_data.username,
             password=form_data.password
         )
-        return TokenResponse(access_token=token)
+        return TokenResponse(access_token=token, refresh_token=refresh_token)
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh(
+    refresh_token: str = Body(..., embed=True),
+    db: Session = Depends(get_db)
+):
+    user_id = decode_refresh_token(refresh_token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Refresh token inválido o expirado")
+
+    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Usuario no encontrado o inactivo")
+
+    new_access = create_access_token(str(user.id))
+    new_refresh = create_refresh_token(str(user.id))
+    return TokenResponse(access_token=new_access, refresh_token=new_refresh)
 
 
 @router.get("/me", response_model=UserResponse)

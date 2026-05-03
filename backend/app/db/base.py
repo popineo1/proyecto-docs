@@ -15,3 +15,4 @@ from app.models.monthly_kpi_snapshot import MonthlyKpiSnapshot
 from app.models.provider_metric_snapshot import ProviderMetricSnapshot
 from app.models.category_metric_snapshot import CategoryMetricSnapshot
 from app.models.financial_movement import FinancialMovement
+from app.models.invitation import Invitation

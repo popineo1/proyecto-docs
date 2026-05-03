@@ -2,7 +2,7 @@ from uuid import UUID
 import os
 import logging
 from pathlib import Path
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -22,6 +22,7 @@ router = APIRouter(prefix="/documents", tags=["Documents"])
 
 @router.post("/upload", response_model=list[DocumentUploadResponse], status_code=status.HTTP_201_CREATED)
 async def upload_documents(
+    background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
@@ -44,11 +45,11 @@ async def upload_documents(
                 current_tenant=current_tenant
             )
 
-            JobService.run_processing_job(db, job)
-            db.refresh(document)
+            # Procesa en background para no bloquear la respuesta HTTP
+            background_tasks.add_task(JobService.run_processing_job_background, str(job.id))
 
             responses.append(DocumentUploadResponse(
-                message=f"Documento '{file.filename}' subido y procesado correctamente",
+                message=f"Documento '{file.filename}' subido correctamente, procesando...",
                 document=DocumentResponse.model_validate(document),
                 job=JobResponse.model_validate(job)
             ))
