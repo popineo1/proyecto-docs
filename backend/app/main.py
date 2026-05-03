@@ -18,7 +18,9 @@ app.add_middleware(
         "http://localhost:4201",
         "http://localhost:3000",
         "https://www.tuadministrativo.com",
-        "https://tuadministrativo.com"
+        "https://tuadministrativo.com",
+        "https://controladmin.tuadministrativo.com",
+        "https://control-admin.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
