@@ -33,7 +33,7 @@ export const routes: Routes = [
       {
         path: 'dashboard',
         component: DashboardPageComponent,
-        title: 'Dashboard | Control Total',
+        title: 'Dashboard | Control Admin',
       },
       {
         path: 'admin',
@@ -42,7 +42,7 @@ export const routes: Routes = [
           {
             path: 'users',
             component: UserManagementComponent,
-            title: 'Gestión de Usuarios | Control Total',
+            title: 'Gestión de Usuarios | Control Admin',
           },
           {
             path: '',
@@ -54,7 +54,7 @@ export const routes: Routes = [
       {
         path: 'financial-movements',
         component: FinancialMovementsPageComponent,
-        title: 'Movimientos financieros | Control Total',
+        title: 'Movimientos financieros | Control Admin',
       },
       {
         path: 'review-inbox',
@@ -64,32 +64,32 @@ export const routes: Routes = [
       {
         path: 'manual-movements',
         component: ManualMovementsPageComponent,
-        title: 'Movimientos sin factura | Control Total',
+        title: 'Movimientos sin factura | Control Admin',
       },
       {
         path: 'documents',
         component: DocumentsPageComponent,
-        title: 'Documentos | Control Total',
+        title: 'Documentos | Control Admin',
       },
       {
         path: 'documents/:id',
         component: DocumentDetailPageComponent,
-        title: 'Detalle de documento | Control Total',
+        title: 'Detalle de documento | Control Admin',
       },
       {
         path: 'financial-entries',
         component: FinancialEntriesPageComponent,
-        title: 'Registros financieros | Control Total',
+        title: 'Registros financieros | Control Admin',
       },
       {
         path: 'select-tenant',
         component: SelectTenantPageComponent,
-        title: 'Seleccionar empresa | Control Total',
+        title: 'Seleccionar empresa | Control Admin',
       },
       {
         path: 'members',
         component: MembersPageComponent,
-        title: 'Equipo | Control Total',
+        title: 'Equipo | Control Admin',
       },
       {
         path: '',
@@ -101,7 +101,7 @@ export const routes: Routes = [
   {
     path: 'join/:token',
     component: AcceptInvitationPageComponent,
-    title: 'Unirse al equipo | Control Total',
+    title: 'Unirse al equipo | Control Admin',
   },
   {
     path: '**',
