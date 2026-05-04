@@ -222,7 +222,7 @@ export class DocumentDetailPageComponent implements OnDestroy {
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          URL.revokeObjectURL(url);
+          setTimeout(() => URL.revokeObjectURL(url), 100);
         },
         error: (err) => {
           this.toast.show(err?.error?.detail || 'No se pudo descargar el archivo.', 'error');

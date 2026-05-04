@@ -114,8 +114,10 @@ export class FinancialMovementsPageComponent {
         const a = document.createElement('a');
         a.href = url;
         a.download = `movimientos_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
         this.exporting.set(false);
       },
       error: () => {

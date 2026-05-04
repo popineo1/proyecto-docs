@@ -232,8 +232,10 @@ export class DashboardPageComponent {
         const a = document.createElement('a');
         a.href = url;
         a.download = `dashboard_${this.activePeriod()}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
         this.exporting.set(false);
       },
       error: () => {
