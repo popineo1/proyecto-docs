@@ -12,6 +12,23 @@ from app.models.user import User
 from app.models.job import Job
 
 
+_MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
+
+_ALLOWED_EXTENSIONS = {
+    ".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif",
+    ".xlsx", ".xls", ".csv",
+}
+
+_ALLOWED_MIME_TYPES = {
+    "application/pdf",
+    "image/jpeg", "image/png", "image/webp", "image/gif",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+    "text/csv", "application/csv",
+    "application/octet-stream",  # fallback genérico que algunos clientes envían
+}
+
+
 class DocumentService:
     UPLOAD_ROOT = Path("storage/uploads")
     UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
@@ -33,9 +50,31 @@ class DocumentService:
         if not file.filename:
             raise ValueError("El archivo no tiene nombre")
 
+        # Validate extension before reading to fail fast
+        extension = Path(file.filename).suffix.lower()
+        if extension not in _ALLOWED_EXTENSIONS:
+            raise ValueError(
+                f"Tipo de archivo no permitido: '{extension}'. "
+                f"Formatos aceptados: {', '.join(sorted(_ALLOWED_EXTENSIONS))}"
+            )
+
         content = await file.read()
         if not content:
             raise ValueError("El archivo está vacío")
+
+        # Validate size
+        if len(content) > _MAX_FILE_SIZE:
+            raise ValueError(
+                f"El archivo supera el tamaño máximo permitido (20 MB). "
+                f"Tamaño recibido: {len(content) / 1024 / 1024:.1f} MB"
+            )
+
+        # Validate MIME type (if provided by the client)
+        if file.content_type and file.content_type not in _ALLOWED_MIME_TYPES:
+            raise ValueError(
+                f"Tipo MIME no permitido: '{file.content_type}'. "
+                "Usa PDF, imagen (JPG/PNG/WEBP) o Excel/CSV."
+            )
 
         supabase = get_supabase()
         if not supabase:
@@ -66,6 +105,17 @@ class DocumentService:
 
         checksum = hashlib.sha256(content).hexdigest()
 
+        # Deduplication: reject if this exact file was already uploaded by this tenant
+        duplicate = db.query(Document).filter(
+            Document.tenant_id == current_tenant.id,
+            Document.checksum == checksum,
+        ).first()
+        if duplicate:
+            raise ValueError(
+                f"Este documento ya fue subido anteriormente "
+                f"('{duplicate.filename_original}')."
+            )
+
         document = Document(
             tenant_id=current_tenant.id,
             uploaded_by_user_id=current_user.id,
@@ -85,20 +135,36 @@ class DocumentService:
         return document
 
     @staticmethod
-    def list_documents_by_tenant(db: Session, tenant_id: str):
+    def list_documents_by_tenant(db: Session, tenant_id: str, skip: int = 0, limit: int = 50):
+        from sqlalchemy import func
         from app.models.financial_movement import FinancialMovement
-        documents = (
-            db.query(Document)
+
+        # Single query: count movements per document via subquery to avoid N+1
+        movements_count_sub = (
+            db.query(
+                FinancialMovement.source_document_id,
+                func.count(FinancialMovement.id).label("movements_count"),
+            )
+            .group_by(FinancialMovement.source_document_id)
+            .subquery()
+        )
+
+        rows = (
+            db.query(Document, func.coalesce(movements_count_sub.c.movements_count, 0))
+            .outerjoin(movements_count_sub, Document.id == movements_count_sub.c.source_document_id)
             .filter(Document.tenant_id == tenant_id)
             .order_by(Document.created_at.desc())
+            .offset(skip)
+            .limit(limit)
             .all()
         )
-        
-        # Attach counts (adhoc for now, could be optimized with a join)
-        for doc in documents:
-            doc.movements_count = db.query(FinancialMovement).filter(FinancialMovement.source_document_id == doc.id).count()
-            
-        return documents
+
+        result = []
+        for doc, count in rows:
+            doc.movements_count = count
+            result.append(doc)
+
+        return result
 
     @staticmethod
     def get_document_by_id(db: Session, tenant_id: str, document_id: str) -> Document | None:

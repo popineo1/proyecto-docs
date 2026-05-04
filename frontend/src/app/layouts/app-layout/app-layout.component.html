@@ -67,6 +67,16 @@
         </a>
 
         <a
+          routerLink="/purchases"
+          routerLinkActive="bg-[var(--blue-selected)]"
+          [routerLinkActiveOptions]="{ exact: true }"
+          class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+          (click)="closeMobileMenu()"
+        >
+          Compras
+        </a>
+
+        <a
           routerLink="/documents"
           routerLinkActive="bg-[var(--blue-selected)]"
           [routerLinkActiveOptions]="{ exact: true }"
@@ -174,6 +184,15 @@
             class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
           >
             Movimientos sin factura
+          </a>
+
+          <a
+            routerLink="/purchases"
+            routerLinkActive="bg-[var(--blue-selected)]"
+            [routerLinkActiveOptions]="{ exact: true }"
+            class="rounded-full px-6 py-4 text-sm font-medium transition-colors hover:bg-[var(--muted-hover-color)]"
+          >
+            Compras
           </a>
         </nav>
       </div>

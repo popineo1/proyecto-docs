@@ -2,8 +2,10 @@ from datetime import datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.orm import Session
+
+VALID_ROLES = {"member", "admin", "owner"}
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_tenant, get_current_user
@@ -22,6 +24,13 @@ INVITATION_EXPIRES_DAYS = 7
 class InvitationCreate(BaseModel):
     email: EmailStr
     role: str = "member"
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in VALID_ROLES:
+            raise ValueError(f"Rol no válido. Debe ser uno de: {', '.join(sorted(VALID_ROLES))}")
+        return v
 
 
 class InvitationResponse(BaseModel):

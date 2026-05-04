@@ -2,7 +2,7 @@ from uuid import UUID
 import os
 import logging
 from pathlib import Path
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -80,10 +80,12 @@ async def upload_documents(
 
 @router.get("", response_model=list[DocumentResponse])
 def list_documents(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
     current_tenant: Tenant = Depends(get_current_tenant),
     db: Session = Depends(get_db)
 ):
-    return DocumentService.list_documents_by_tenant(db, str(current_tenant.id))
+    return DocumentService.list_documents_by_tenant(db, str(current_tenant.id), skip=skip, limit=limit)
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
@@ -126,7 +128,7 @@ def get_document_file(
     if supabase and "/" in document.storage_key and not os.path.isabs(document.storage_key) and not document.storage_key.startswith("storage/"):
         try:
             # Generate a signed URL for 60 seconds
-            res = supabase.storage.from_("documents").create_signed_url(document.storage_key, 60)
+            res = supabase.storage.from_("documents").create_signed_url(document.storage_key, 300)
             return RedirectResponse(url=res["signedURL"])
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error generating download link: {str(e)}")

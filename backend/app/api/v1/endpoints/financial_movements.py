@@ -67,55 +67,6 @@ def list_financial_movements(
     )
 
 
-@router.get("/{movement_id}", response_model=FinancialMovementResponse)
-def get_financial_movement(
-    movement_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    tenant: Tenant = Depends(get_current_tenant),
-    _: User = Depends(get_current_user),
-):
-    service = FinancialMovementService(db)
-    movement = service.get_by_id(tenant.id, movement_id)
-
-    if not movement:
-        raise HTTPException(status_code=404, detail="Movimiento no encontrado.")
-
-    return movement
-
-
-@router.patch("/{movement_id}", response_model=FinancialMovementResponse)
-def update_financial_movement(
-    movement_id: uuid.UUID,
-    payload: FinancialMovementUpdate,
-    db: Session = Depends(get_db),
-    tenant: Tenant = Depends(get_current_tenant),
-    _: User = Depends(get_current_user),
-):
-    service = FinancialMovementService(db)
-    movement = service.update(tenant.id, movement_id, payload)
-
-    if not movement:
-        raise HTTPException(status_code=404, detail="Movimiento no encontrado.")
-
-    return movement
-
-
-@router.delete("/{movement_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_financial_movement(
-    movement_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    tenant: Tenant = Depends(get_current_tenant),
-    _: User = Depends(get_current_user),
-):
-    service = FinancialMovementService(db)
-    deleted = service.delete(tenant.id, movement_id)
-
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Movimiento no encontrado.")
-
-    return None
-
-
 @router.get("/export")
 def export_financial_movements(
     kind: str | None = Query(default=None),
@@ -200,3 +151,54 @@ def get_review_inbox(
         skip=skip,
         limit=limit,
     )
+
+
+# ── Parameterized routes come AFTER fixed-path routes ────────────────────────
+
+@router.get("/{movement_id}", response_model=FinancialMovementResponse)
+def get_financial_movement(
+    movement_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    _: User = Depends(get_current_user),
+):
+    service = FinancialMovementService(db)
+    movement = service.get_by_id(tenant.id, movement_id)
+
+    if not movement:
+        raise HTTPException(status_code=404, detail="Movimiento no encontrado.")
+
+    return movement
+
+
+@router.patch("/{movement_id}", response_model=FinancialMovementResponse)
+def update_financial_movement(
+    movement_id: uuid.UUID,
+    payload: FinancialMovementUpdate,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    _: User = Depends(get_current_user),
+):
+    service = FinancialMovementService(db)
+    movement = service.update(tenant.id, movement_id, payload)
+
+    if not movement:
+        raise HTTPException(status_code=404, detail="Movimiento no encontrado.")
+
+    return movement
+
+
+@router.delete("/{movement_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_financial_movement(
+    movement_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    tenant: Tenant = Depends(get_current_tenant),
+    _: User = Depends(get_current_user),
+):
+    service = FinancialMovementService(db)
+    deleted = service.delete(tenant.id, movement_id)
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Movimiento no encontrado.")
+
+    return None

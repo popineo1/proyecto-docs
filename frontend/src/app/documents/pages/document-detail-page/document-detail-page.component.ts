@@ -1,7 +1,7 @@
 import { CommonModule, DatePipe } from '@angular/common';
 import { Component, DestroyRef, inject, OnDestroy, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { finalize, interval, Subscription, switchMap, takeWhile } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DocumentsService } from '../../../core/services/documents.service';
 import { JobsService } from '../../../core/services/jobs.service';
@@ -42,11 +42,14 @@ export class DocumentDetailPageComponent implements OnDestroy {
   readonly viewerMimeType = signal<string | null>(null);
   readonly previewLoading = signal(false);
   readonly downloadLoading = signal(false);
+  readonly polling = signal(false);
 
   private readonly sanitizer = inject(DomSanitizer);
+  private pollingSub: Subscription | null = null;
 
   ngOnDestroy(): void {
     this.revokeViewerUrl();
+    this.stopPolling();
   }
 
   constructor() {
@@ -101,11 +104,56 @@ export class DocumentDetailPageComponent implements OnDestroy {
       .subscribe({
         next: (jobs) => {
           this.jobs.set(jobs);
+          this.maybeStartPolling(jobs);
         },
         error: (err) => {
           this.jobsError.set(err?.error?.detail || 'No se pudieron cargar los procesos.');
         },
       });
+  }
+
+  private maybeStartPolling(jobs: JobItem[]): void {
+    const hasActiveJob = jobs.some(
+      (j) => j.status === 'pending' || j.status === 'running'
+    );
+
+    if (hasActiveJob && !this.pollingSub) {
+      this.polling.set(true);
+      const id = this.documentId();
+      this.pollingSub = interval(4000)
+        .pipe(
+          switchMap(() => this.documentsService.getJobs(id)),
+          takeWhile((updatedJobs) => {
+            const stillActive = updatedJobs.some(
+              (j) => j.status === 'pending' || j.status === 'running'
+            );
+            return stillActive;
+          }, true) // emit the final value that fails the predicate
+        )
+        .subscribe({
+          next: (updatedJobs) => {
+            this.jobs.set(updatedJobs);
+            const done = updatedJobs.every(
+              (j) => j.status !== 'pending' && j.status !== 'running'
+            );
+            if (done) {
+              this.stopPolling();
+              this.toast.show('Procesamiento completado.', 'success');
+              // Reload document to get updated processing_status
+              this.documentsService.getById(id).subscribe({
+                next: (doc) => this.document.set(doc),
+              });
+            }
+          },
+          error: () => this.stopPolling(),
+        });
+    }
+  }
+
+  private stopPolling(): void {
+    this.pollingSub?.unsubscribe();
+    this.pollingSub = null;
+    this.polling.set(false);
   }
 
   runProcessingJob(jobId: string): void {

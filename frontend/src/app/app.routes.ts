@@ -16,6 +16,7 @@ import { adminGuard } from './core/guards/admin.guard';
 import { UserManagementComponent } from './features/admin/pages/user-management/user-management.component';
 import { MembersPageComponent } from './features/members/members-page.component';
 import { AcceptInvitationPageComponent } from './features/members/accept-invitation-page.component';
+import { PurchasesPageComponent } from './purchases/purchases-page.component';
 
 
 export const routes: Routes = [
@@ -59,7 +60,12 @@ export const routes: Routes = [
       {
         path: 'review-inbox',
         component: ReviewInboxPageComponent,
-        title: 'Bandeja de revisión | Proyecto Docs',
+        title: 'Bandeja de revisión | Control Admin',
+      },
+      {
+        path: 'purchases',
+        component: PurchasesPageComponent,
+        title: 'Compras | Control Admin',
       },
       {
         path: 'manual-movements',

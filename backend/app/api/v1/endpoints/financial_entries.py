@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -15,10 +15,12 @@ router = APIRouter(prefix="/financial-entries", tags=["Financial Entries"])
 
 @router.get("", response_model=list[FinancialEntryResponse])
 def list_financial_entries(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
     current_tenant: Tenant = Depends(get_current_tenant),
     db: Session = Depends(get_db)
 ):
-    return FinancialEntryService.list_by_tenant(db, current_tenant.id)
+    return FinancialEntryService.list_by_tenant(db, current_tenant.id, skip=skip, limit=limit)
 
 
 @router.get("/{entry_id}", response_model=FinancialEntryResponse)

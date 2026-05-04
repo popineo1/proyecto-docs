@@ -281,11 +281,13 @@ class FinancialEntryService:
         return entry
 
     @staticmethod
-    def list_by_tenant(db: Session, tenant_id: UUID):
+    def list_by_tenant(db: Session, tenant_id: UUID, skip: int = 0, limit: int = 50):
         return (
             db.query(FinancialEntry)
             .filter(FinancialEntry.tenant_id == tenant_id)
             .order_by(FinancialEntry.created_at.desc())
+            .offset(skip)
+            .limit(limit)
             .all()
         )
 
