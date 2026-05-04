@@ -71,6 +71,18 @@ y extrae su información en formato JSON.
 - Si operation_kind = unknown o la categoría no encaja con ninguna de las anteriores:
   - Usa "Otros ingresos" si parece un ingreso, o "Otros gastos" si parece un gasto.
 
+## Reglas para campos fiscales adicionales
+- vat_pct: porcentaje IVA aplicado. España: general=21, reducido=10, superreducido=4.
+- irpf_pct / irpf_amount: retención IRPF. El profesional cobra total = base + iva - irpf_retenido.
+  Tipos habituales: 15% (profesional estándar), 7% (nuevos autónomos primeros 2 años), 19% (alquileres).
+- inversion_sujeto_pasivo: true cuando la factura viene de empresa extranjera UE/EEUU sin IVA español.
+  Ejemplos: Anthropic, OpenAI, Google LLC, Lovable, GitHub, AWS, Stripe, Adobe, Microsoft Ireland.
+  En ese caso vat_amount=0, vat_pct=0, inversion_sujeto_pasivo=true.
+- es_rectificativa: true si el documento contiene "ABONO", "RECTIFICATIVA", "Credit Note" o importes negativos.
+  En ese caso rectifica_a = número de la factura original que anula.
+- trimestre: Q1=enero-marzo, Q2=abril-junio, Q3=julio-septiembre, Q4=octubre-diciembre.
+  Calcularlo siempre a partir de issue_date si está disponible.
+
 ## Formato de respuesta (JSON estricto)
 {{
   "document_type": "invoice|ticket|receipt|other",
@@ -86,9 +98,15 @@ y extrae su información en formato JSON.
   "due_date": "DD/MM/YYYY o null",
   "tax_base": número o null,
   "vat_amount": número o null,
+  "vat_pct": número (21/10/4/0) o null,
   "irpf_amount": número o null,
+  "irpf_pct": número (15/7/19) o null,
   "total_amount": número o null,
   "currency": "EUR",
+  "trimestre": "Q1"|"Q2"|"Q3"|"Q4" o null,
+  "es_rectificativa": true|false,
+  "rectifica_a": "número factura original o null",
+  "inversion_sujeto_pasivo": true|false,
   "category": "una de las categorías de negocio listadas arriba",
   "confidence_score": número entre 0.0 y 1.0,
   "needs_review": true|false,
@@ -326,6 +344,25 @@ Ejemplo de formato (una sola línea):
 "irpf_amount":null,"currency":"EUR"}"""
 
 
+def _validate_cuadre(result: AIExtractionResult) -> AIExtractionResult:
+    """Valida que total ≈ base + iva - irpf. Marca needs_review si no cuadra."""
+    total = result.total_amount
+    base = result.tax_base
+    if total is None or base is None:
+        return result
+    iva = result.vat_amount or 0.0
+    irpf = result.irpf_amount or 0.0
+    expected = base + iva - irpf
+    if abs(total - expected) > 0.02:
+        note = f"Cuadre fallido: {base:.2f} + {iva:.2f} - {irpf:.2f} = {expected:.2f} ≠ {total:.2f}"
+        logger.warning("[CUADRE] %s", note)
+        return result.model_copy(update={
+            "needs_review": True,
+            "review_reason": result.review_reason or note,
+        })
+    return result
+
+
 def _retry_extraction(client, model: str, text: str) -> dict | None:
     try:
         response = client.chat.completions.create(
@@ -435,6 +472,7 @@ class AIExtractionService:
 
             result = AIExtractionResult.model_validate(data)
             result = _sanitize_result(result, tenant_aliases_norm)
+            result = _validate_cuadre(result)
 
             logger.warning(
                 "[EXTRACCION] motor=%s | kind=%s | third_party=%s | issuer=%s | "
@@ -454,4 +492,113 @@ class AIExtractionService:
 
         except Exception as e:
             logger.warning("Extracción IA fallida, usando fallback regex: %s", e)
+            return None
+
+    @staticmethod
+    def extract_multimodal(
+        image_b64: str,
+        tenant_name: str | None = None,
+        tenant_aliases: list[str] | None = None,
+    ) -> AIExtractionResult | None:
+        """
+        Extrae datos fiscales enviando la página del documento como imagen a Gemini.
+        Requiere GOOGLE_AI_KEY. Mucho mejor que OCR+texto para PDFs escaneados o
+        facturas con formatos visuales complejos.
+        """
+        try:
+            from openai import OpenAI
+            from app.core.config import settings
+
+            if not settings.GOOGLE_AI_KEY:
+                logger.debug("extract_multimodal requiere GOOGLE_AI_KEY")
+                return None
+
+            model = settings.GOOGLE_AI_MODEL
+            client = OpenAI(
+                api_key=settings.GOOGLE_AI_KEY,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            )
+
+            all_aliases: list[str] = []
+            if tenant_name:
+                all_aliases.append(tenant_name)
+            if tenant_aliases:
+                all_aliases.extend(a for a in tenant_aliases if a and a != tenant_name)
+
+            if all_aliases:
+                tenant_block = "El usuario se identifica con cualquiera de estos nombres/datos:\n" + "\n".join(
+                    f"  - {a}" for a in all_aliases
+                )
+            else:
+                tenant_block = "(identidad del usuario no disponible)"
+
+            tenant_aliases_norm = {_normalize_str(a) for a in all_aliases if a}
+            system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(tenant_block=tenant_block)
+            # Para multimodal Gemini se instruye el formato en el propio prompt
+            system_prompt += "\n\nResponde ÚNICAMENTE con el objeto JSON, sin texto adicional."
+
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{image_b64}"},
+                        },
+                        {
+                            "type": "text",
+                            "text": "Extrae todos los datos fiscales de este documento según el esquema JSON indicado.",
+                        },
+                    ]},
+                ],
+                temperature=0,
+                max_tokens=2000,
+            )
+
+            raw_json = response.choices[0].message.content
+            if not raw_json:
+                logger.warning("Gemini multimodal devolvió respuesta vacía")
+                return None
+
+            logger.debug("RAW GEMINI MULTIMODAL: %r", raw_json[:2000])
+            cleaned = _clean_json_response(raw_json)
+
+            engine = "gemini_multimodal"
+            try:
+                data = json.loads(cleaned)
+            except json.JSONDecodeError as json_err:
+                logger.warning("JSON incompleto en multimodal (%s), reintentando...", json_err)
+                data = _retry_extraction(client, model, "Revisa la imagen del documento y extrae los campos.")
+                if data is not None:
+                    engine = "gemini_multimodal_retry"
+                else:
+                    data = _try_salvage_truncated_json(cleaned)
+                    if data is not None:
+                        engine = "gemini_multimodal_salvage"
+                if data is None:
+                    raise
+
+            result = AIExtractionResult.model_validate(data)
+            result = _sanitize_result(result, tenant_aliases_norm)
+            result = _validate_cuadre(result)
+
+            logger.warning(
+                "[EXTRACCION] motor=%s | kind=%s | third_party=%s | total=%s | "
+                "trimestre=%s | rectificativa=%s | isp=%s | confidence=%.2f | needs_review=%s",
+                engine,
+                result.operation_kind,
+                result.third_party_name,
+                result.total_amount,
+                result.trimestre,
+                result.es_rectificativa,
+                result.inversion_sujeto_pasivo,
+                result.confidence_score,
+                result.needs_review,
+            )
+
+            return result
+
+        except Exception as e:
+            logger.warning("Extracción multimodal Gemini fallida: %s", e)
             return None

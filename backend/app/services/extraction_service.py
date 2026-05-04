@@ -1,6 +1,7 @@
 import re
 import io
 import os
+import base64
 import logging
 import pdfplumber
 import pytesseract
@@ -203,9 +204,44 @@ class ExtractionService:
             except Exception:
                 pass
 
+            from app.services.ai_extraction_service import AIExtractionService
+            from app.core.config import settings
+
             ai_result = None
-            if full_text.strip():
-                from app.services.ai_extraction_service import AIExtractionService
+
+            # 6a. Path multimodal Gemini: enviar primera página como imagen
+            # Mucho mejor que OCR+texto para PDFs escaneados o visualmente complejos
+            if settings.GOOGLE_AI_KEY:
+                try:
+                    image_b64: str | None = None
+                    mime = (document.mime_type or "").lower()
+
+                    if "pdf" in mime:
+                        file_content.seek(0)
+                        pages = convert_from_bytes(file_content.read(), dpi=200, first_page=1, last_page=1)
+                        if pages:
+                            buf = io.BytesIO()
+                            pages[0].save(buf, format="PNG")
+                            image_b64 = base64.b64encode(buf.getvalue()).decode()
+                            file_content.seek(0)
+                    elif mime.startswith("image/"):
+                        file_content.seek(0)
+                        image_b64 = base64.b64encode(file_content.read()).decode()
+                        file_content.seek(0)
+
+                    if image_b64:
+                        logger.info("Usando extracción multimodal Gemini para %s", document.filename_original)
+                        ai_result = AIExtractionService.extract_multimodal(
+                            image_b64,
+                            tenant_name=tenant_name_for_ai,
+                            tenant_aliases=tenant_aliases_for_ai,
+                        )
+                except Exception as e:
+                    logger.warning("Path multimodal falló, intentando texto: %s", e)
+
+            # 6b. Fallback: texto extraído por pdfplumber/OCR → Gemini o OpenAI
+            if ai_result is None and full_text.strip():
+                logger.info("Usando extracción por texto para %s", document.filename_original)
                 ai_result = AIExtractionService.extract(
                     full_text,
                     tenant_name=tenant_name_for_ai,
@@ -233,8 +269,15 @@ class ExtractionService:
                     "total_amount": ai_result.total_amount if ai_result.total_amount is not None else raw_data["total"],
                     "tax_amount": ai_result.vat_amount if ai_result.vat_amount is not None else raw_data["vat"],
                     "tax_base": ai_result.tax_base if ai_result.tax_base is not None else raw_data["base"],
+                    "vat_pct": ai_result.vat_pct,
                     "irpf_amount": ai_result.irpf_amount,
+                    "irpf_pct": ai_result.irpf_pct,
                     "currency": ai_result.currency,
+                    # campos fiscales enriquecidos (factura-reader)
+                    "trimestre": ai_result.trimestre,
+                    "es_rectificativa": ai_result.es_rectificativa,
+                    "rectifica_a": ai_result.rectifica_a,
+                    "inversion_sujeto_pasivo": ai_result.inversion_sujeto_pasivo,
                     "category": ai_result.category,
                     "needs_review": ai_result.needs_review,
                     "review_reason": ai_result.review_reason,

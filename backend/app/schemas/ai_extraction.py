@@ -19,9 +19,17 @@ class AIExtractionResult(BaseModel):
 
     tax_base: float | None = None
     vat_amount: float | None = None
+    vat_pct: float | None = None          # % IVA aplicado (21, 10, 4, 0)
     irpf_amount: float | None = None
+    irpf_pct: float | None = None         # % IRPF retenido (15, 7, 19)
     total_amount: float | None = None
     currency: str = "EUR"
+
+    # Campos fiscales enriquecidos (factura-reader)
+    trimestre: str | None = None                  # Q1-Q4
+    es_rectificativa: bool = False                # abono / credit note
+    rectifica_a: str | None = None                # número de factura original
+    inversion_sujeto_pasivo: bool = False         # factura UE/intl sin IVA español
 
     category: str | None = None
     confidence_score: float = Field(default=0.0, ge=0.0, le=1.0)
