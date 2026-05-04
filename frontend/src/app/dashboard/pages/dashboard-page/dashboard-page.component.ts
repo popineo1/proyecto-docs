@@ -2,6 +2,7 @@ import { CommonModule, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { forkJoin } from 'rxjs';
 import { ChartConfiguration } from 'chart.js';
+import { ToastService } from '../../../core/services/toast.service';
 
 import {
   CategoryMetric,
@@ -29,6 +30,7 @@ export interface PeriodOption {
 })
 export class DashboardPageComponent {
   private readonly dashboardService = inject(DashboardService);
+  private readonly toast = inject(ToastService);
 
   readonly activeTab = signal<DashboardTab>('overview');
   readonly activePeriod = signal<PeriodKey>('all');
@@ -228,6 +230,12 @@ export class DashboardPageComponent {
     this.exporting.set(true);
     this.dashboardService.exportDashboard(period).subscribe({
       next: (blob) => {
+        // Si el servidor devolvió un error, el blob puede contener JSON de error
+        if (blob.type === 'application/json' || blob.size === 0) {
+          this.toast.show('Error al generar el Excel. Inténtalo de nuevo.', 'error');
+          this.exporting.set(false);
+          return;
+        }
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -238,7 +246,20 @@ export class DashboardPageComponent {
         setTimeout(() => URL.revokeObjectURL(url), 100);
         this.exporting.set(false);
       },
-      error: () => {
+      error: (err) => {
+        // Con responseType:'blob', el error body llega como Blob — leerlo para mostrar el detalle
+        if (err?.error instanceof Blob) {
+          err.error.text().then((text: string) => {
+            try {
+              const json = JSON.parse(text);
+              this.toast.show(json?.detail || 'Error al exportar el dashboard.', 'error');
+            } catch {
+              this.toast.show(`Error ${err.status}: ${text || 'Error al exportar.'}`, 'error');
+            }
+          });
+        } else {
+          this.toast.show(err?.error?.detail || 'Error al exportar el dashboard.', 'error');
+        }
         this.exporting.set(false);
       },
     });
