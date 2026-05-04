@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str | None = None
     EMAIL_FROM: str = "noreply@tuadministrativo.com"
 
+    # Stripe Billing
+    STRIPE_SECRET_KEY: str | None = None          # sk_live_... o sk_test_...
+    STRIPE_WEBHOOK_SECRET: str | None = None      # whsec_...
+    STRIPE_PRICE_ID: str | None = None            # price_... (precio mensual/anual)
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,

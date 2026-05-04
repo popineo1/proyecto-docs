@@ -105,3 +105,31 @@ def get_current_tenant(
         )
 
     return tenant
+
+
+def require_active_subscription(
+    tenant: Tenant = Depends(get_current_tenant),
+) -> Tenant:
+    """
+    Dependencia que bloquea el acceso si el tenant no tiene suscripción activa en Stripe.
+    Añádela a los routers o endpoints que deben estar detrás del muro de pago:
+
+        @router.get("/data", dependencies=[Depends(require_active_subscription)])
+
+    El frontend debe interceptar HTTP 402 y redirigir a la página de suscripción.
+    Si STRIPE_SECRET_KEY no está configurada (entorno de desarrollo), se permite el acceso.
+    """
+    from app.core.config import settings
+    from app.services.billing_service import ACTIVE_STATUSES
+
+    # Sin Stripe configurado → modo desarrollo, acceso libre
+    if not settings.STRIPE_SECRET_KEY:
+        return tenant
+
+    if tenant.subscription_status not in ACTIVE_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="subscription_required",
+        )
+
+    return tenant

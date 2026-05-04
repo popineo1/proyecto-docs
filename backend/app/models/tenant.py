@@ -19,6 +19,13 @@ class Tenant(Base):
     fiscal_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     tax_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
+    # Stripe Billing
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True, index=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    subscription_status: Mapped[str | None] = mapped_column(String(50), nullable=True)   # active, past_due, canceled…
+    subscription_plan: Mapped[str | None] = mapped_column(String(100), nullable=True)    # price_id o alias legible
+    subscription_period_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
