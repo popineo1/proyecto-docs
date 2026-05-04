@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     ALGORITHM: str = "HS256"
 
+    FRONTEND_URL: str = "https://controlamin.tuadministrativo.com"
+    RESEND_API_KEY: str | None = None
+    EMAIL_FROM: str = "noreply@tuadministrativo.com"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,
