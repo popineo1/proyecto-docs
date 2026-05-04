@@ -18,6 +18,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(outgoing).pipe(
     catchError((err: HttpErrorResponse) => {
+      // 402 → suscripción requerida (no redirigir si ya estamos en /billing)
+      if (err.status === 402 && !req.url.includes('/billing/')) {
+        router.navigate(['/subscription-required']);
+        return throwError(() => err);
+      }
+
       // Solo intentar refresh en 401, y no para las rutas de auth en sí
       if (err.status !== 401 || req.url.includes('/auth/')) {
         return throwError(() => err);
